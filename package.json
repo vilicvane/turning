@@ -1,0 +1,31 @@
+{
+  "name": "turning",
+  "version": "0.1.0",
+  "description": "A state-based testing framework.",
+  "main": "bld/index.js",
+  "typings": "bld/index.d.ts",
+  "scripts": {
+    "test": "mocha",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vilic/turning.git"
+  },
+  "keywords": [
+    "testing",
+    "state",
+    "automatic",
+    "generation"
+  ],
+  "author": "vilicvane",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/vilic/turning/issues"
+  },
+  "homepage": "https://github.com/vilic/turning#readme",
+  "devDependencies": {
+    "tslint": "^3.10.0-dev.3",
+    "typescript": "^1.9.0-dev.20160530-1.0"
+  }
+}
