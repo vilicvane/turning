@@ -62,4 +62,16 @@ turning
         assert(await spawned.promise === await original.promise);
     });
 
-turning.start();
+turning
+    .spawn('pending')
+    .from('rejected')
+    .by(context => {
+        return {
+            promise: context.promise.then(() => new Promise(() => { }))
+        };
+    })
+    .verify(async (spawned, original) => {
+        assert(await spawned.promise === await original.promise);
+    });
+
+turning.search();

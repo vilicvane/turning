@@ -12,7 +12,7 @@ export class Turning<T> {
     inits: InitNode<T>[] = [];
     transforms: TransformNode<T>[] = [];
 
-    maxDepth = 3;
+    maxDepth = 5;
     maxRepeat = 1;
 
     define(state: string): DefineNode<T> {
@@ -58,6 +58,8 @@ export class Turning<T> {
     search() {
         for (let initNode of this.inits) {
             let states = initNode.stateSet;
+            console.log();
+            console.log(initNode.description);
             this.next(states, []);
         }
     }
@@ -67,17 +69,20 @@ export class Turning<T> {
             return;
         }
 
-        let transforms = this
-            .transforms
-            .filter(transformNode => transformNode.test(states));
+        for (let transformNode of this.transforms) {
+            let transformedStates = transformNode.transform(states);
 
-        for (let transformNode of transforms) {
+            if (!transformedStates) {
+                continue;
+            }
+
             let frame: StackFrame<T> = {
                 target: undefined!,
                 node: transformNode
             };
 
-            this.next(transformNode.toStateSet, stack.concat(frame));
+            console.log(Array(stack.length + 2).join('  ') + transformNode.description);
+            this.next(transformedStates, stack.concat(frame));
         }
     }
 }
@@ -95,14 +100,22 @@ export abstract class TransformNode<T> implements TurningNode<T> {
 
     abstract get description(): string;
 
-    test(states: Set<string>): boolean {
+    transform(states: Set<string>): Set<string> | undefined {
+        states = new Set(states);
+
         for (let state of this.fromStateSet) {
-            if (!states.has(state)) {
-                return false;
+            if (states.has(state)) {
+                states.delete(state);
+            } else {
+                return undefined;
             }
         }
 
-        return true;
+        for (let state of this.toStateSet) {
+            states.add(state);
+        }
+
+        return states;
     }
 }
 
