@@ -51,7 +51,7 @@ turning
     });
 
 turning
-    .spawn('pending')
+    .spawn(['pending', 'oops'])
     .from('fulfilled')
     .by(context => {
         return {
@@ -64,7 +64,7 @@ turning
 
 turning
     .spawn('pending')
-    .from('rejected')
+    .from(['rejected', 'oops'])
     .by(context => {
         return {
             promise: context.promise.then(() => new Promise(() => { }))

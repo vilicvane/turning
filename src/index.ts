@@ -2,9 +2,13 @@ interface Constructor<T> {
     new(...args: any[]): T;
 }
 
-export interface StackFrame<T> {
+interface StackFrame<T> {
     target: T;
     node: TransformNode<T>;
+}
+
+interface SearchContext<T> {
+    pathsCount: number;
 }
 
 export class Turning<T> {
@@ -12,7 +16,7 @@ export class Turning<T> {
     inits: InitNode<T>[] = [];
     transforms: TransformNode<T>[] = [];
 
-    maxDepth = 5;
+    maxDepth = 10;
     maxRepeat = 1;
 
     define(state: string): DefineNode<T> {
@@ -56,18 +60,28 @@ export class Turning<T> {
     }
 
     search() {
+        let context: SearchContext<T> = {
+            pathsCount: 0
+        };
+
         for (let initNode of this.inits) {
             let states = initNode.stateSet;
             console.log();
             console.log(initNode.description);
-            this.next(states, []);
+            this.next(states, [], context);
         }
+
+        console.log();
+        console.log(`Found ${context.pathsCount} possible paths.`);
     }
 
-    next(states: Set<string>, stack: StackFrame<T>[]): void {
+    private next(states: Set<string>, stack: StackFrame<T>[], context: SearchContext<T>): void {
         if (stack.length > this.maxDepth) {
+            context.pathsCount++;
             return;
         }
+
+        let hasTransformation = false;
 
         for (let transformNode of this.transforms) {
             let transformedStates = transformNode.transform(states);
@@ -82,7 +96,16 @@ export class Turning<T> {
             };
 
             console.log(Array(stack.length + 2).join('  ') + transformNode.description);
-            this.next(transformedStates, stack.concat(frame));
+
+            this.next(transformedStates, stack.concat(frame), context);
+
+            if (!hasTransformation) {
+                hasTransformation = true;
+            }
+        }
+
+        if (!hasTransformation) {
+            context.pathsCount++;
         }
     }
 }
