@@ -3,9 +3,10 @@
   "compilerOptions": {
     "composite": true,
 
+    "types": ["node", "jest"],
+
     "declaration": true,
 
     "outDir": "../../bld/design"
-  },
-  "references": [{"path": "../library"}]
+  }
 }

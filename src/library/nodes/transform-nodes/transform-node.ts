@@ -1,36 +1,75 @@
 import assert from 'assert';
 
-import {ITurningNode} from '../common';
+import _ from 'lodash';
+import match from 'micromatch';
 
-export abstract class TransformNode implements ITurningNode {
-  _description: string | undefined;
+import {TestHandler} from '../common';
 
-  protected fromStateSet!: Set<string>;
-  protected toStateSet!: Set<string>;
+let lastTransformNodeId = 0;
 
+export type TransformHandler<TContext = unknown> = (
+  context: TContext,
+) => Promise<TContext | void> | TContext | void;
+
+export abstract class TransformNode<TContext = unknown> {
+  /** @internal */
+  readonly id = ++lastTransformNodeId;
+
+  /** @internal */
+  rawDescription!: string;
+
+  protected obsoleteStatePatterns!: string[];
+  protected newStates!: string[];
+
+  /** @internal */
+  handler!: TransformHandler<TContext>;
+
+  /** @internal */
+  testHandler: TestHandler<TContext> | undefined;
+
+  /** @internal */
   abstract get description(): string;
 
-  transform(stateSet: Set<string>): Set<string> | undefined {
-    stateSet = new Set(stateSet);
+  /** @internal */
+  transformStates(states: string[]): string[] | undefined {
+    states = [...states];
 
-    let fromStateSet = this.fromStateSet;
-    let toStateSet = this.toStateSet;
+    let obsoleteStatePatterns = this.obsoleteStatePatterns;
+    let newStates = this.newStates;
 
-    assert(fromStateSet);
-    assert(toStateSet);
+    assert(obsoleteStatePatterns);
+    assert(newStates);
 
-    for (let state of fromStateSet) {
-      if (stateSet.has(state)) {
-        stateSet.delete(state);
-      } else {
+    for (let pattern of obsoleteStatePatterns) {
+      let matched = match(states, pattern);
+
+      if (!matched.length) {
         return undefined;
       }
     }
 
-    for (let state of toStateSet) {
-      stateSet.add(state);
+    states = match.not(states, obsoleteStatePatterns);
+
+    return _.union(states, newStates);
+  }
+
+  /** @internal */
+  async transform(context: TContext): Promise<TContext> {
+    let handler = this.handler;
+
+    let updatedContext = await handler(context);
+
+    return updatedContext || context;
+  }
+
+  /** @internal */
+  async test(context: TContext): Promise<void> {
+    let testHandler = this.testHandler;
+
+    if (!testHandler) {
+      return;
     }
 
-    return stateSet;
+    await testHandler(context);
   }
 }

@@ -1,13 +1,11 @@
-import {ITurningState} from '../turning';
+import {TestHandler} from './common';
 
-import {VerifyHandler} from './common';
-
-export class DefineNode<TState extends ITurningState = ITurningState> {
-  verifyHandler: VerifyHandler | undefined;
+export class DefineNode<TContext = unknown> {
+  _testHandler: TestHandler | undefined;
 
   constructor(public state: string) {}
 
-  verify(handler: VerifyHandler<[TState]>): void {
-    this.verifyHandler = handler;
+  test(handler: TestHandler<TContext>): void {
+    this._testHandler = handler;
   }
 }

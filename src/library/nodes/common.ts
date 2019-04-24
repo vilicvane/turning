@@ -1,14 +1,7 @@
-import {ITurningState} from '../turning';
+export type TestHandler<TContext = unknown> = (
+  context: TContext,
+) => Promise<void> | void;
 
-export interface ITurningNode {
-  _description: string | undefined;
-  description: string;
-}
-
-export type VerifyHandler<
-  TStateTuple extends ITurningState[] = ITurningState[]
-> = (...states: TStateTuple) => Promise<void> | void;
-
-export interface WithVerifyHandler {
-  verifyHandler: VerifyHandler | undefined;
+export interface WithTestHandler {
+  testHandler: TestHandler | undefined;
 }

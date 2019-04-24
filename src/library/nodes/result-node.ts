@@ -1,9 +1,9 @@
-import {VerifyHandler, WithVerifyHandler} from './common';
+import {TestHandler, WithTestHandler} from './common';
 
-export class ResultNode<T> {
-  constructor(public node: WithVerifyHandler<T>) {}
+export class ResultNode<TContext> {
+  constructor(public node: WithTestHandler) {}
 
-  verify(handler: VerifyHandler<T>): void {
-    this.node.verifyHandler = handler;
+  test(handler: TestHandler<TContext>): void {
+    this.node.testHandler = handler;
   }
 }

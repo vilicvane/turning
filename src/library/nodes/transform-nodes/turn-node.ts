@@ -1,102 +1,54 @@
-import {ITurningState} from '../../turning';
-import {SingleElementTupleWithFallback} from '../../types';
-import {VerifyHandler} from '../common';
+import {TestHandler} from '../common';
 import {ResultNode} from '../result-node';
 
-import {TransformNode} from './transform-node';
+import {TransformHandler, TransformNode} from './transform-node';
 
-export type SyncTurnHandler<
-  TFromStateTuple extends ITurningState[],
-  TToStateTuple extends ITurningState[]
-> = (
-  ...states: TFromStateTuple
-) => SingleElementTupleWithFallback<TToStateTuple>;
+export class TurnNode<TContext = unknown> extends TransformNode<TContext> {
+  /** @internal */
+  handler!: TransformHandler<TContext>;
 
-export type AsyncTurnHandler<
-  TFromStateTuple extends ITurningState[],
-  TToStateTuple extends ITurningState[]
-> = (
-  ...states: TFromStateTuple
-) => SingleElementTupleWithFallback<TToStateTuple>;
+  /** @internal */
+  testHandler: TestHandler<TContext> | undefined;
 
-export type TurnHandler<
-  TFromStateTuple extends ITurningState[] = ITurningState[],
-  TToStateTuple extends ITurningState[] = ITurningState[]
-> =
-  | SyncTurnHandler<TFromStateTuple, TToStateTuple>
-  | AsyncTurnHandler<TFromStateTuple, TToStateTuple>;
-
-export class TurnNode<
-  TState extends ITurningState,
-  TFromStateTuple extends ITurningState[]
-> extends TransformNode {
-  handler: TurnHandler | undefined;
-  verifyHandler: VerifyHandler<TFromStateTuple> | undefined;
-
-  constructor(fromStates: Set<string>) {
+  constructor(obsoleteStatePatterns: string[]) {
     super();
 
-    this.fromStateSet = fromStates;
+    this.obsoleteStatePatterns = obsoleteStatePatterns;
   }
 
+  /** @internal */
   get description(): string {
-    let description = `Turn [${Array.from(this.fromStateSet)}] to [${Array.from(
-      this.toStateSet,
-    )}]`;
+    let description = `Turn [${this.obsoleteStatePatterns}] to [${
+      this.newStates
+    }]`;
 
-    if (this._description) {
-      description += ` by ${this._description}`;
+    if (this.rawDescription) {
+      description += ` by ${this.rawDescription}`;
     }
 
     return description;
   }
 
-  to<TStateNameTuple extends TState['name'][]>(
-    ...states: TStateNameTuple
-  ): TurnToNode<
-    TState,
-    TFromStateTuple,
-    {
-      [TIndex in keyof TStateNameTuple]: Extract<
-        TState,
-        {name: TStateNameTuple[TIndex]}
-      >
-    }
-  > {
-    this.toStateSet = new Set(states);
+  to(states: string[]): TurnToChain<TContext> {
+    this.newStates = states;
 
-    return new TurnToNode(this);
+    return new TurnToChain(this);
   }
 }
 
-export class TurnToNode<
-  TState extends ITurningState,
-  TFromStateTuple extends ITurningState[],
-  TToStateTuple extends ITurningState[]
-> {
-  constructor(readonly node: TurnNode<TState, TFromStateTuple>) {}
+export class TurnToChain<TContext = unknown> {
+  constructor(
+    /** @internal */
+    readonly node: TurnNode<TContext>,
+  ) {}
 
-  sync(
+  by(
     description: string,
-    handler: SyncTurnHandler<TFromStateTuple, TToStateTuple>,
-  ): ResultNode<TToStateTuple> {
-    return this.by(description, handler);
-  }
-
-  async(
-    description: string,
-    handler: AsyncTurnHandler<TFromStateTuple, TToStateTuple>,
-  ): ResultNode<TToStateTuple> {
-    return this.by(description, handler);
-  }
-
-  private by(
-    description: string,
-    handler: TurnHandler<TFromStateTuple, TToStateTuple>,
-  ): ResultNode<TToStateTuple> {
-    this.node._description = description;
+    handler: TransformHandler<TContext>,
+  ): ResultNode<TContext> {
+    this.node.rawDescription = description;
     this.node.handler = handler;
 
-    return new ResultNode(this);
+    return new ResultNode(this.node);
   }
 }

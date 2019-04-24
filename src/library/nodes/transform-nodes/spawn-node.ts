@@ -1,68 +1,54 @@
-import {TransformNode} from './transform-node';
+import {TestHandler} from '../common';
+import {ResultNode} from '../result-node';
 
-export type SpawnHandler<T> = (object: T) => Promise<T> | T;
+import {TransformHandler, TransformNode} from './transform-node';
 
-export class SpawnNode<T> extends TransformNode {
-  handler: SpawnHandler<T> | undefined;
-  verifyHandler: SpawnVerifyHandler<T> | undefined;
+export class SpawnNode<TContext = unknown> extends TransformNode<TContext> {
+  /** @internal */
+  handler!: TransformHandler<TContext>;
 
-  constructor(toStates: Set<string>) {
+  /** @internal */
+  testHandler: TestHandler<TContext> | undefined;
+
+  constructor(obsoleteStatePatterns: string[]) {
     super();
-    this.toStateSet = toStates;
+
+    this.obsoleteStatePatterns = obsoleteStatePatterns;
   }
 
+  /** @internal */
   get description(): string {
-    let description = `Spawn [${Array.from(
-      this.toStateSet,
-    )}] from [${Array.from(this.fromStateSet)}]`;
+    let description = `Spawn [${this.obsoleteStatePatterns}] to [${
+      this.newStates
+    }]`;
 
-    if (this._description) {
-      description += `by ${this._description}`;
+    if (this.rawDescription) {
+      description += `by ${this.rawDescription}`;
     }
 
     return description;
   }
 
-  from(states: string | string[]): SpawnFromNode<T> {
-    if (typeof states === 'string') {
-      states = [states];
-    }
+  to(states: string[]): SpawnToChain<TContext> {
+    this.newStates = states;
 
-    this.fromStateSet = new Set(states);
-
-    return new SpawnFromNode(this);
+    return new SpawnToChain(this);
   }
 }
 
-export class SpawnFromNode<T> {
-  constructor(public node: SpawnNode<T>) {}
+export class SpawnToChain<TContext> {
+  constructor(
+    /** @internal */
+    readonly node: SpawnNode<TContext>,
+  ) {}
 
-  by(description: string, handler: SpawnHandler<T>): SpawnResultNode<T>;
-  by(handler: SpawnHandler<T>): SpawnResultNode<T>;
   by(
-    description: string | SpawnHandler<T>,
-    handler?: SpawnHandler<T>,
-  ): SpawnResultNode<T> {
-    if (typeof description === 'string') {
-      this.node._description = description;
-      this.node.handler = handler!;
-    } else {
-      this.node.handler = description;
-    }
+    description: string,
+    handler: TransformHandler<TContext>,
+  ): ResultNode<TContext> {
+    this.node.rawDescription = description;
+    this.node.handler = handler;
 
-    return new SpawnResultNode(this.node);
-  }
-}
-
-export type SpawnVerifyHandler<T> = (
-  spawned: T,
-  original: T,
-) => Promise<void> | void;
-
-export class SpawnResultNode<T> {
-  constructor(public node: SpawnNode<T>) {}
-
-  verify(handler: SpawnVerifyHandler<T>): void {
-    this.node.verifyHandler = handler;
+    return new ResultNode(this.node);
   }
 }

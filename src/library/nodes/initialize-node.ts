@@ -1,62 +1,61 @@
-import {ITurningState} from '../turning';
-import {SingleElementTupleWithFallback} from '../types';
-
-import {ITurningNode, VerifyHandler} from './common';
+import {TestHandler} from './common';
 import {ResultNode} from './result-node';
 
-export type SyncInitializeHandler<
-  TStateTuple extends ITurningState[]
-> = () => SingleElementTupleWithFallback<TStateTuple>;
+export type InitializeHandler<TContext = unknown> = () =>
+  | Promise<TContext>
+  | TContext;
 
-export type AsyncInitializeHandler<
-  TStateTuple extends ITurningState[]
-> = () => Promise<SingleElementTupleWithFallback<TStateTuple>>;
+export class InitializeNode<TContext = unknown> {
+  /** @internal */
+  rawDescription!: string;
 
-export type InitializeHandler<
-  TStateTuple extends ITurningState[] = ITurningState[]
-> = SyncInitializeHandler<TStateTuple> | AsyncInitializeHandler<TStateTuple>;
+  /** @internal */
+  handler!: InitializeHandler<TContext>;
 
-export class InitializeNode<
-  TStateTuple extends ITurningState[] = ITurningState[]
-> implements ITurningNode {
-  _description: string | undefined;
+  /** @internal */
+  testHandler: TestHandler<TContext> | undefined;
 
-  handler: InitializeHandler | undefined;
-  verifyHandler: VerifyHandler | undefined;
+  constructor(
+    /** @internal */
+    readonly states: string[],
+  ) {}
 
-  constructor(public stateSet: Set<string>) {}
-
+  /** @internal */
   get description(): string {
-    let description = `Initialize [${Array.from(this.stateSet)}]`;
+    let description = `Initialize [${this.states}]`;
 
-    if (this._description) {
-      description += ` by ${this._description}`;
+    if (this.rawDescription) {
+      description += ` by ${this.rawDescription}`;
     }
 
     return description;
   }
 
-  sync(
+  by(
     description: string,
-    handler: SyncInitializeHandler<TStateTuple>,
-  ): ResultNode<TStateTuple> {
-    return this.by(description, handler);
-  }
-
-  async(
-    description: string,
-    handler: AsyncInitializeHandler<TStateTuple>,
-  ): ResultNode<TStateTuple> {
-    return this.by(description, handler);
-  }
-
-  private by(
-    description: string,
-    handler: InitializeHandler<TStateTuple>,
-  ): ResultNode<TStateTuple> {
-    this._description = description;
+    handler: InitializeHandler<TContext>,
+  ): ResultNode<TContext> {
+    this.rawDescription = description;
     this.handler = handler;
 
     return new ResultNode(this);
+  }
+
+  /** @internal */
+  async initialize(): Promise<TContext> {
+    let handler = this.handler;
+
+    return handler();
+  }
+
+  /** @internal */
+  async test(context: TContext): Promise<void> {
+    let testHandler = this.testHandler;
+
+    if (!testHandler) {
+      return;
+    }
+
+    await testHandler(context);
   }
 }
