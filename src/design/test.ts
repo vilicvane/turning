@@ -4,8 +4,6 @@ import {Browser, Page, launch} from 'puppeteer-core';
 
 import {Turning} from '../../bld/library';
 
-jest.setTimeout(200000);
-
 let browser!: Browser;
 let page!: Page;
 
@@ -33,155 +31,136 @@ let turning = new Turning<Context>({
 });
 
 turning.define('session:account:logged-in').test(async ({page}) => {
-  let accountId = await page.evaluate('ACCOUNT_ID');
-
   // ...
 });
 
 turning.define('session:user:selected').test(async ({page}) => {
-  let userProfileElement = page.$('.user-profile');
-
   // ...
 });
 
 turning.define('page:home').test(async ({page}) => {
-  // let form = await page.$('.slider');
-  // ...
+  await page.waitFor('.home-view');
 });
 
 turning.define('page:login').test(async ({page}) => {
-  let form = page.$('.login-form');
+  await page.waitFor('.login-view');
+});
 
-  // ...
+turning.define('page:app:sidebar:default').test(async ({page}) => {
+  await page.waitFor('.sidebar');
+});
+
+turning.define('page:app:sidebar:achievements').test(async ({page}) => {
+  await page.waitFor('.expanded-sidebar .achievements');
+});
+
+turning.define('page:app:sidebar:idea').test(async ({page}) => {
+  await page.waitFor('.expanded-sidebar .idea');
 });
 
 turning.define('page:app:workbench').test(async ({page}) => {
-  let taskListElement = page.$('.task-list');
-
-  // ...
+  await page.waitFor('.workbench-view');
 });
 
-turning.initialize(['page:home']).by('opening new page', async () => {
-  await page.goto('http://localhost:8080');
-
-  return {
-    page,
-  };
+turning.define('page:app:kanban-list').test(async ({page}) => {
+  await page.waitFor('.kanban-list-view');
 });
 
-turning.initialize(['page:login']).by('opening new page', async () => {
-  await page.goto('http://localhost:8080/login');
-
-  return {
-    page,
-  };
+turning.define('page:app:task-hub').test(async ({page}) => {
+  await page.waitFor('.tasks-view');
 });
+
+turning
+  .initialize([
+    'session:account:not-logged-in',
+    'session:user:not-selected',
+    'page:home',
+    'context:not-spawned',
+  ])
+  .by('opening new page', async () => {
+    await page.goto('http://localhost:8080/logout');
+    await page.goto('http://localhost:8080');
+
+    return {
+      page,
+    };
+  });
 
 turning
   .turn(['page:home'])
   .to(['page:login'])
   .by('clicking login link', async ({page}) => {
     await page.click('.login-button');
-    await page.waitFor('.login-view');
   })
   .test(async ({page}) => {});
 
 turning
-  .turn(['page:login'])
-  .to([
-    'session:account:logged-in',
-    'page:app:workbench',
-    // 'page:app:workbench.task',
-    // 'page:app:sidebar.collapsed',
-  ])
+  .turn(['session:*', 'page:login'])
+  .to(['session:account:logged-in', 'session:user:selected', 'page:app'])
   .by('submitting username and password (lion)', async ({page}) => {
     await page.type('.mobile-input input', '18600000001');
     await page.type('.password-input input', 'abc123');
 
     await page.click('.submit-button');
-
-    await page.waitForNavigation();
   })
   .test(async ({page}) => {
     // ...
   });
-
-// turning
-//   .turn(['page:login'])
-//   .to([
-//     'session:account:logged-in',
-//     'page:app:workbench',
-//     // 'page:app:workbench.task',
-//     // 'page:app:sidebar.collapsed',
-//   ])
-//   .by('submitting username and password (xin)', async ({page}) => {
-//     await page.type('.mobile-input input', '18600000003');
-//     await page.type('.password-input input', 'abc123');
-
-//     await page.click('.submit-button');
-
-//     await page.waitForNavigation();
-//   })
-//   .test(async ({page}) => {
-//     // ...
-//   });
-
-let state = {
-  session: {
-    account: 'logged-in',
-  },
-  page: {
-    app: {
-      workbench: true,
-      sidebar: 'collapsed',
-    },
-  },
-};
 
 turning
-  .turn([
-    'session:account:logged-in',
-    'page:app:*',
-    // 'page:app:workbench.task',
-    // 'page:app:sidebar.collapsed',
-  ])
-  .to(['page:login'])
-  .by('to /logout', async ({page}) => {
-    await page.goto('http://localhost:8080/logout');
-
-    await page.waitForNavigation();
+  .spawn(['page:app'])
+  .to(['page:app:workbench', 'page:app:sidebar:default'])
+  .by('goto', async ({page}) => {
+    await page.goto('http://localhost:8080/app/workbench');
+    return {page};
   })
   .test(async ({page}) => {
     // ...
   });
 
-// turning
-//   .turn(['page:app:workbench'])
-//   .to(['page:app:workbench', 'page:app:workbench.task'])
-//   .by('click task in task list', async ({page}) => {
-//     await page.click('.task');
-//   })
-//   .test(async ({page}) => {
-//     await page.waitForNavigation();
+turning
+  .turn(['page:app:!(kanban-list)'])
+  .to(['page:app:kanban-list'])
+  .by('clicking task hub link in navigation bar', async ({page}) => {
+    await page.click('.header-nav .kanban-list-link');
+  })
+  .test(async ({page}) => {
+    // ...
+  });
 
-//     // ...
-//   });
+turning
+  .turn(['page:app:!(task-hub)'])
+  .to(['page:app:task-hub'])
+  .by('clicking task hub link in navigation bar', async ({page}) => {
+    await page.click('.header-nav .task-hub-link');
+  })
+  .test(async ({page}) => {
+    // ...
+  });
 
-// turning
-//   .spawn(['page:app:workbench'])
-//   .to(['page:app:workbench', 'page:app:workbench.task'])
-//   .by('', async ({page, ...rest}) => {
-//     let popup = await new Promise<Page>(resolve => page.once('popup', resolve));
+turning
+  .turn(['page:app:sidebar:!(achievements)'])
+  .to(['page:app:sidebar:achievements'])
+  .by('clicking sidebar avatar', async ({page}) => {
+    await page.click('.normal-sidebar-nav-link.achievements-link');
+  })
+  .test(async ({page}) => {
+    // ...
+  });
 
-//     return {
-//       page: popup,
-//       ...rest,
-//     };
-//   });
+turning
+  .turn(['page:app:sidebar:!(idea)'])
+  .to(['page:app:sidebar:idea'])
+  .by('clicking sidebar avatar', async ({page}) => {
+    await page.click('.normal-sidebar-nav-link.idea-link');
+  })
+  .test(async ({page}) => {
+    // ...
+  });
 
 turning.ensure(['page:app:workbench.task', 'page:app:sidebar.achievement']);
 
-// turning.search();
+// expect(turning.search()).toMatchInlineSnapshot();
 
 turning.test();
 
@@ -199,106 +178,3 @@ async function extractPageEssential(page: Page): Promise<PageEssential> {
     title,
   };
 }
-
-// turning.case();
-
-// class Page {
-//   opened: boolean;
-//   loggedIn: boolean;
-
-//   logIn(username: string, password: string): void {}
-// }
-
-// import * as assert from 'assert';
-
-// type PromiseState =
-//   | PromisePendingState
-//   | PromiseFulfilledState
-//   | PromiseRejectedState;
-
-// interface PromisePendingState {
-//   name: 'pending';
-// }
-
-// interface PromiseFulfilledState {
-//   name: 'fulfilled';
-// }
-
-// interface PromiseRejectedState {
-//   name: 'rejected';
-// }
-
-// declare function xxx<TTuple extends any[]>(
-//   ...args: TTuple
-// ): {[TIndex in keyof TTuple]: number};
-
-// xxx('foo', 'bar');
-
-// type X = ['foo', 'bar'];
-
-// type Y = {[TIndex in keyof X]: number};
-
-// let y!: Y;
-
-// y['filter'];
-
-// let turning = new Turning<PromiseState>();
-
-// turning.define('pending').verify(state => {});
-
-// turning.define('fulfilled').verify(state => {});
-
-// turning.define('rejected').verify(state => {});
-
-// turning.initialize('pending', 'fulfilled').async('test', async () => {
-//   return [
-//     {
-//       name: 'pending',
-//     },
-//     {
-//       name: 'fulfilled',
-//     },
-//   ];
-// });
-
-// turning
-//   .turn('pending')
-//   .to('fulfilled')
-//   .sync('', context => {
-//     return {
-//       name: 'fulfilled',
-//     };
-//   });
-
-// turning
-//   .turn('pending')
-//   .to('rejected')
-//   .by(context => {
-//     // context.promise.reject(new Error());
-//   });
-
-// turning
-//   .spawn(['pending', 'oops'])
-//   .from('fulfilled')
-//   .by(context => {
-//     return {
-//       promise: context.promise.then(() => new Promise(() => {})),
-//     };
-//   })
-//   .verify(async (spawned, original) => {
-//     assert((await spawned.promise) === (await original.promise));
-//   });
-
-// turning
-//   .spawn('pending')
-//   .from(['rejected', 'oops'])
-//   .by(context => {
-//     return {
-//       promise: context.promise.then(() => new Promise(() => {})),
-//     };
-//   })
-//   .verify(async (spawned, original) => {
-//     assert((await spawned.promise) === (await original.promise));
-//   });
-
-// turning.search();

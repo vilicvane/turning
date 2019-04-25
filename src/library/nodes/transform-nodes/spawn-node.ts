@@ -1,9 +1,11 @@
 import {TestHandler} from '../common';
 import {ResultNode} from '../result-node';
 
-import {TransformHandler, TransformNode} from './transform-node';
+import {AbstractTransformNode, TransformHandler} from './transform-node';
 
-export class SpawnNode<TContext = unknown> extends TransformNode<TContext> {
+export class SpawnNode<TContext = unknown> extends AbstractTransformNode<
+  TContext
+> {
   /** @internal */
   handler!: TransformHandler<TContext>;
 
@@ -23,7 +25,7 @@ export class SpawnNode<TContext = unknown> extends TransformNode<TContext> {
     }]`;
 
     if (this.rawDescription) {
-      description += `by ${this.rawDescription}`;
+      description += ` by ${this.rawDescription}`;
     }
 
     return description;

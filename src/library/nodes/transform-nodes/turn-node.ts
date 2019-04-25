@@ -1,9 +1,11 @@
 import {TestHandler} from '../common';
 import {ResultNode} from '../result-node';
 
-import {TransformHandler, TransformNode} from './transform-node';
+import {AbstractTransformNode, TransformHandler} from './transform-node';
 
-export class TurnNode<TContext = unknown> extends TransformNode<TContext> {
+export class TurnNode<TContext = unknown> extends AbstractTransformNode<
+  TContext
+> {
   /** @internal */
   handler!: TransformHandler<TContext>;
 

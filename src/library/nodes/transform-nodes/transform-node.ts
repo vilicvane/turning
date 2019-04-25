@@ -11,7 +11,7 @@ export type TransformHandler<TContext = unknown> = (
   context: TContext,
 ) => Promise<TContext | void> | TContext | void;
 
-export abstract class TransformNode<TContext = unknown> {
+abstract class TransformNode<TContext = unknown> {
   /** @internal */
   readonly id = ++lastTransformNodeId;
 
@@ -73,3 +73,7 @@ export abstract class TransformNode<TContext = unknown> {
     await testHandler(context);
   }
 }
+
+export interface ITransformNode extends TransformNode {}
+
+export const AbstractTransformNode = TransformNode;

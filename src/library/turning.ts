@@ -1,3 +1,5 @@
+import _ from 'lodash';
+
 import {
   DefineNode,
   InitializeNode,
@@ -7,21 +9,34 @@ import {
 } from './nodes';
 
 const DEFAULT_MAX_DEPTH = 10;
-const DEFAULT_MAX_REPEAT = 2;
+const DEFAULT_MAX_REPEAT = 1;
+
+interface IPathVia {
+  states: string[];
+  turn?: PathTurn;
+  spawns?: PathSpawn[];
+}
+
+interface PathInitialize extends IPathVia {
+  node: InitializeNode;
+}
+
+interface PathSpawn extends IPathVia {
+  node: SpawnNode;
+}
+
+interface PathTurn extends IPathVia {
+  node: TurnNode;
+}
+
+type PathStart = PathInitialize | PathSpawn;
+
+type PathVia = PathInitialize | PathSpawn | PathTurn;
 
 interface SearchPathContext {
-  initializeNode: InitializeNode;
-  transformNodes: TransformNode[];
+  depth: number;
   repeatCountMap: Map<number, number>;
-}
-
-interface Path {
-  initializeNode: InitializeNode;
-  transformNodes: TransformNode[];
-}
-
-interface SearchContext {
-  paths: Path[];
+  parentPathStart: PathStart;
 }
 
 export interface ITurningTestAdapter {
@@ -85,65 +100,129 @@ export class Turning<TContext> {
 
     let {describe, test} = this.testAdapter;
 
-    for (let [index, {initializeNode, transformNodes}] of paths.entries()) {
-      describe(`Test Case #${index + 1}`, () => {
+    let defineSpawnedTests = (
+      pathSpawns: PathSpawn[],
+      parentTestCaseId: string,
+      contextGetter: () => unknown,
+    ): void => {
+      for (let [index, pathSpawn] of pathSpawns.entries()) {
+        let {node: spawnNode, states: spawnStates} = pathSpawn;
+        let {
+          turns: pathTurns,
+          spawns: nextPathSpawns,
+        } = getPathTurnsAndNextSpawns(pathSpawn);
+
+        let spawnedTestCaseId = `${parentTestCaseId}.${index + 1}`;
+
+        describe(`Test Case ${spawnedTestCaseId}`, () => {
+          let context: unknown;
+
+          test(spawnNode.description, async () => {
+            let parentContext = contextGetter();
+
+            context = await spawnNode.transform(parentContext);
+
+            if (
+              typeof context === 'object' &&
+              context &&
+              context === parentContext
+            ) {
+              throw new Error(
+                'Spawned context is not expected to have the same reference as the parent context',
+              );
+            }
+
+            await this.testStates(context, spawnStates);
+
+            await spawnNode.test(context);
+          });
+
+          for (let {node: turnNode, states: turnStates} of pathTurns) {
+            test(turnNode.description, async () => {
+              context = await turnNode.transform(context);
+
+              await this.testStates(context, turnStates);
+
+              await turnNode.test(context);
+            });
+          }
+
+          if (nextPathSpawns) {
+            defineSpawnedTests(
+              nextPathSpawns,
+              spawnedTestCaseId,
+              () => context,
+            );
+          }
+        });
+      }
+    };
+
+    for (let [index, pathInitialize] of paths.entries()) {
+      let {node: initializeNode, states: initializeStates} = pathInitialize;
+      let {
+        turns: pathTurns,
+        spawns: nextPathSpawns,
+      } = getPathTurnsAndNextSpawns(pathInitialize);
+
+      let testCaseId = `${index + 1}`;
+
+      describe(`Test Case ${testCaseId}`, () => {
         let context: unknown;
 
         test(initializeNode.description, async () => {
           context = await initializeNode.initialize();
+
+          await this.testStates(context, initializeStates);
+
           await initializeNode.test(context);
         });
 
-        for (let transformNode of transformNodes) {
-          test(transformNode.description, async () => {
-            context = await transformNode.transform(context);
-            await transformNode.test(context);
+        for (let {node: turnNode, states: turnStates} of pathTurns) {
+          test(turnNode.description, async () => {
+            context = await turnNode.transform(context);
+
+            await this.testStates(context, turnStates);
+
+            await turnNode.test(context);
           });
+        }
+
+        if (nextPathSpawns) {
+          defineSpawnedTests(nextPathSpawns, testCaseId, () => context);
         }
       });
     }
   }
 
-  search(): Path[] {
-    let searchContext: SearchContext = {
-      paths: [],
-    };
+  search(): PathInitialize[] {
+    let pathInitializes: PathInitialize[] = [];
 
     for (let initializeNode of this.initializeNodes) {
       let states = initializeNode.states;
 
-      console.info();
-      console.info(initializeNode.description);
-
-      this.searchNext(
+      let pathInitialize: PathInitialize = {
+        node: initializeNode,
         states,
-        {
-          initializeNode,
-          transformNodes: [],
-          repeatCountMap: new Map(),
-        },
-        searchContext,
-      );
+      };
+
+      this.searchNext(states, pathInitializes, {
+        depth: 0,
+        repeatCountMap: new Map(),
+        parentPathStart: pathInitialize,
+      });
     }
 
-    let {paths} = searchContext;
-
-    console.info();
-    console.info(`Found ${paths.length} possible paths.`);
-
-    return paths;
+    return pathInitializes;
   }
 
   private searchNext(
     states: string[],
-    {initializeNode, transformNodes, repeatCountMap}: SearchPathContext,
-    searchContext: SearchContext,
+    currentPathStarts: PathStart[],
+    {depth, repeatCountMap, parentPathStart}: SearchPathContext,
   ): void {
-    if (transformNodes.length > this.maxDepth) {
-      searchContext.paths.push({
-        initializeNode,
-        transformNodes,
-      });
+    if (depth >= this.maxDepth) {
+      currentPathStarts.push(parentPathStart);
       return;
     }
 
@@ -162,22 +241,42 @@ export class Turning<TContext> {
       let transformedStates = transformNode.transformStates(states);
 
       if (!transformedStates) {
+        // from states not matching
         continue;
       }
 
-      console.info(
-        Array(transformNodes.length + 2).join('  ') + transformNode.description,
-      );
+      let pathStarts: PathStart[];
+      let pathStart: PathStart;
 
-      this.searchNext(
-        transformedStates,
-        {
-          initializeNode,
-          transformNodes: [...transformNodes, transformNode],
-          repeatCountMap: new Map([...repeatCountMap, [id, count]]),
-        },
-        searchContext,
-      );
+      if (transformNode instanceof TurnNode) {
+        pathStarts = currentPathStarts;
+
+        pathStart = clonePath(parentPathStart);
+
+        getPathEnd(pathStart).turn = {
+          node: transformNode,
+          states: transformedStates,
+        };
+      } else {
+        if (!currentPathStarts.includes(parentPathStart)) {
+          currentPathStarts.push(parentPathStart);
+        }
+
+        let parentPathEnd = getPathEnd(parentPathStart);
+
+        pathStarts = parentPathEnd.spawns || (parentPathEnd.spawns = []);
+
+        pathStart = {
+          node: transformNode,
+          states: transformedStates,
+        };
+      }
+
+      this.searchNext(transformedStates, pathStarts, {
+        depth: depth + 1,
+        repeatCountMap: new Map([...repeatCountMap, [id, count]]),
+        parentPathStart: pathStart,
+      });
 
       if (!hasTransformation) {
         hasTransformation = true;
@@ -185,10 +284,71 @@ export class Turning<TContext> {
     }
 
     if (!hasTransformation) {
-      searchContext.paths.push({
-        initializeNode,
-        transformNodes,
-      });
+      currentPathStarts.push(parentPathStart);
     }
   }
+
+  private async testStates(context: unknown, states: string[]): Promise<void> {
+    let defineNodeMap = this.defineNodeMap;
+
+    for (let state of states) {
+      let defineNode = defineNodeMap.get(state);
+
+      if (!defineNode) {
+        continue;
+      }
+
+      let {testHandler} = defineNode;
+
+      if (!testHandler) {
+        continue;
+      }
+
+      await testHandler(context);
+    }
+  }
+}
+
+function clonePath<T extends PathStart>(pathStart: T): T {
+  return _.cloneDeepWith(pathStart, value => {
+    if (Array.isArray(value) || _.isPlainObject(value)) {
+      return undefined;
+    } else {
+      return value;
+    }
+  });
+}
+
+function getPathEnd(pathStart: PathStart): PathVia {
+  let via: PathVia = pathStart;
+
+  while (via.turn) {
+    via = via.turn;
+  }
+
+  return via;
+}
+
+interface PathTurnsAndNextSpawns {
+  turns: PathTurn[];
+  spawns: PathSpawn[] | undefined;
+}
+
+function getPathTurnsAndNextSpawns(
+  pathStart: PathStart,
+): PathTurnsAndNextSpawns {
+  let turns: PathTurn[] = [];
+
+  let via: PathVia = pathStart;
+
+  while (via.turn) {
+    via = via.turn;
+
+    turns.push(via);
+  }
+
+  return {
+    turns,
+    spawns: via.spawns,
+  };
 }
