@@ -1,11 +1,19 @@
-import {TestHandler} from './common';
+import {generatePathNodeId} from '../@utils';
+
+import {PathNode, TestHandler} from './common';
 import {ResultNode} from './result-node';
 
 export type InitializeHandler<TContext = unknown> = () =>
   | Promise<TContext>
   | TContext;
 
-export class InitializeNode<TContext = unknown> {
+export class InitializeNode<TContext = unknown> implements PathNode {
+  /** @internal */
+  readonly id = generatePathNodeId();
+
+  /** @internal */
+  _alias: string | undefined;
+
   /** @internal */
   rawDescription!: string;
 
@@ -29,6 +37,11 @@ export class InitializeNode<TContext = unknown> {
     }
 
     return description;
+  }
+
+  alias(alias: string): this {
+    this._alias = alias;
+    return this;
   }
 
   by(

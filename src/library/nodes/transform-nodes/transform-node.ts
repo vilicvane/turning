@@ -3,9 +3,8 @@ import assert from 'assert';
 import _ from 'lodash';
 import match from 'micromatch';
 
-import {TestHandler} from '../common';
-
-let lastTransformNodeId = 0;
+import {generatePathNodeId} from '../../@utils';
+import {PathNode, TestHandler} from '../common';
 
 export type TransformHandler<TContext = unknown> = (
   context: TContext,
@@ -16,9 +15,12 @@ export interface TransformStateMatchingOptions {
   excludes?: string[];
 }
 
-abstract class TransformNode<TContext = unknown> {
+abstract class TransformNode<TContext = unknown> implements PathNode {
   /** @internal */
-  readonly id = ++lastTransformNodeId;
+  readonly id = generatePathNodeId();
+
+  /** @internal */
+  _alias: string | undefined;
 
   /** @internal */
   rawDescription!: string;

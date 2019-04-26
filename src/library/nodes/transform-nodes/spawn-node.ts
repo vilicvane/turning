@@ -42,6 +42,11 @@ export class SpawnToChain<TContext> {
     readonly node: SpawnNode<TContext>,
   ) {}
 
+  alias(alias: string): this {
+    this.node._alias = alias;
+    return this;
+  }
+
   by(
     description: string,
     handler: SpawnHandler<TContext>,
