@@ -1,13 +1,17 @@
 import {TestHandler} from '../common';
 import {ResultNode} from '../result-node';
 
-import {AbstractTransformNode, TransformHandler} from './transform-node';
+import {AbstractTransformNode} from './transform-node';
+
+export type SpawnHandler<TContext = unknown> = (
+  context: TContext,
+) => Promise<TContext> | TContext;
 
 export class SpawnNode<TContext = unknown> extends AbstractTransformNode<
   TContext
 > {
   /** @internal */
-  handler!: TransformHandler<TContext>;
+  handler!: SpawnHandler<TContext>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
@@ -40,7 +44,7 @@ export class SpawnToChain<TContext> {
 
   by(
     description: string,
-    handler: TransformHandler<TContext>,
+    handler: SpawnHandler<TContext>,
   ): ResultNode<TContext> {
     this.node.rawDescription = description;
     this.node.handler = handler;

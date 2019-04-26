@@ -54,7 +54,9 @@ turning.define('page:login').test(async ({page}) => {
   await page.waitFor('.login-view');
 });
 
-turning.define('page:app');
+turning.define('page:app').test(async ({page}) => {
+  await page.waitFor('#app > .header');
+});
 
 turning.define('page:app:sidebar:default').test(async ({page}) => {
   await page.waitFor('.sidebar');
@@ -111,6 +113,8 @@ turning
     await page.type('.password-input input', 'abc123');
 
     await page.click('.submit-button');
+
+    await page.waitForNavigation();
   })
   .test(async ({page}) => {
     // ...
@@ -120,7 +124,8 @@ turning
   .spawn(['page:app'])
   .to(['page:app:workbench', 'page:app:sidebar:default'])
   .by('goto', async ({page}) => {
-    await page.goto('http://localhost:8080/app/workbench');
+    await page.click('.header-logo');
+
     return {page};
   })
   .test(async ({page}) => {
@@ -176,6 +181,8 @@ turning
       '这是一个忧伤的故事\n',
     );
 
+    await waitForSyncing(page);
+
     return {page};
   });
 
@@ -198,4 +205,8 @@ async function extractPageEssential(page: Page): Promise<PageEssential> {
     path: URL.parse(url).path!,
     title,
   };
+}
+
+async function waitForSyncing(page: Page): Promise<void> {
+  await page.waitFor('.syncing-info:not(.syncing)');
 }
