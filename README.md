@@ -99,10 +99,13 @@ turning.define('state-b').test(async context => {
 
 // Define initialize nodes:
 
-turning.initialize(['state-a']).by(async () => {
-  // Initialize the context to `state-a` and return the context object.
-  return {};
-});
+turning
+  .initialize(['state-a'])
+  .alias('initialize a')
+  .by(async () => {
+    // Initialize the context to `state-a` and return the context object.
+    return {};
+  });
 
 // Define transformation nodes:
 
@@ -145,7 +148,7 @@ So basically if you are using `turn`, every leaf would result in a new test case
 Turning also provides a way to manually add test cases, and this ignores `maxDepth` and `maxRepeat` options.
 
 ```ts
-turning.case('manual case 1', ['a to b', 'b to a', 'a to b']);
+turning.case('manual case 1', ['initialize a', 'a to b', 'b to a', 'a to b']);
 
 turning.test();
 ```

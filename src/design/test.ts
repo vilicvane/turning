@@ -186,9 +186,6 @@ turning.case('click click click 1', [
   'click navbar kanban list link',
   'click navbar task hub link',
   'click navbar kanban list link',
-  'click navbar task hub link',
-  'click navbar kanban list link',
-  'click navbar task hub link',
 ]);
 
 turning.case('click click click 2', [
@@ -199,9 +196,6 @@ turning.case('click click click 2', [
   'click navbar task hub link',
   'click navbar kanban list link',
   'click navbar task hub link',
-  'click navbar kanban list link',
-  'click navbar task hub link',
-  'click navbar kanban list link',
 ]);
 
 ////////////////////
