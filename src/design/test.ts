@@ -28,6 +28,10 @@ let turning = new Turning<Context>({
   test,
 });
 
+///////////////////
+// Define States //
+///////////////////
+
 turning.define('session:account:not-logged-in');
 
 turning.define('session:account:logged-in');
@@ -72,6 +76,10 @@ turning.define('page:app:task-hub').test(async ({page}) => {
   await page.waitFor('.tasks-view');
 });
 
+/////////////////////////////
+// Define Initialize Nodes //
+/////////////////////////////
+
 turning
   .initialize([
     'session:account:not-logged-in',
@@ -83,10 +91,12 @@ turning
     await page.goto('http://localhost:8080/logout');
     await page.goto('http://localhost:8080');
 
-    return {
-      page,
-    };
+    return {page};
   });
+
+////////////////////////////
+// Define Transform Nodes //
+////////////////////////////
 
 turning
   .turn(['page:home'])
@@ -161,10 +171,12 @@ turning
 
     await expect(page).toMatchElement('.idea-list-item', {text});
 
-    return {
-      page,
-    };
+    return {page};
   });
+
+///////////////////////
+// Manual Test Cases //
+///////////////////////
 
 turning.case('click click click 1', [
   'open home page',
@@ -192,7 +204,15 @@ turning.case('click click click 2', [
   'click navbar kanban list link',
 ]);
 
+////////////////////
+// Generate Tests //
+////////////////////
+
 turning.test();
+
+///////////////
+// Utilities //
+///////////////
 
 async function waitForSyncing(page: Page): Promise<void> {
   await page.waitFor('.syncing-info:not(.syncing)');

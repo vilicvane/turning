@@ -4,6 +4,7 @@ import {
   DefineNode,
   InitializeNode,
   PathNode,
+  ResultNode,
   SpawnNode,
   TransformNode,
   TransformStateMatchingOptions,
@@ -48,7 +49,7 @@ interface SearchCase {
   rest: PathNode[];
 }
 
-export type GeneralCasePathNode = string | PathNode;
+export type GeneralCaseNode<TContext = unknown> = string | ResultNode<TContext>;
 
 export interface ITurningTestAdapter {
   describe(name: string, callback: () => void): void;
@@ -66,10 +67,7 @@ export class Turning<TContext> {
   private initializeNodes: InitializeNode<TContext>[] = [];
   private transformNodes: TransformNode<TContext>[] = [];
 
-  private nameToGeneralCasePathNodesMap = new Map<
-    string,
-    GeneralCasePathNode[]
-  >();
+  private nameToGeneralCasePathNodesMap = new Map<string, GeneralCaseNode[]>();
 
   private maxDepth: number;
   private maxRepeat: number;
@@ -115,7 +113,7 @@ export class Turning<TContext> {
     return node;
   }
 
-  case(name: string, nodes: GeneralCasePathNode[]): void {
+  case(name: string, nodes: GeneralCaseNode<TContext>[]): void {
     let nameToGeneralCasePathNodesMap = this.nameToGeneralCasePathNodesMap;
 
     if (nameToGeneralCasePathNodesMap.has(name)) {
@@ -268,7 +266,7 @@ export class Turning<TContext> {
 
           pathNode = aliasedPathNode;
         } else {
-          pathNode = generalCasePathNode;
+          pathNode = generalCasePathNode.node;
         }
 
         pathNodes.push(pathNode);
