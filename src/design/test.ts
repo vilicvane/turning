@@ -1,3 +1,4 @@
+import {chrome as chromePath} from 'chrome-paths';
 import {Browser, Page, launch} from 'puppeteer-core';
 
 import {Turning} from '../../bld/library';
@@ -8,8 +9,7 @@ let page!: Page;
 beforeAll(async () => {
   browser = await launch({
     headless: false,
-    executablePath:
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    executablePath: process.env.CHROME_EXECUTABLE_PATH || chromePath,
   });
 
   page = await browser.newPage();

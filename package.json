@@ -33,6 +33,7 @@
     "@types/node": "^11.13.6",
     "@types/jest": "^24.0.11",
     "@types/puppeteer-core": "^1.9.0",
+    "chrome-paths": "^1.0.1",
     "expect-puppeteer": "^4.1.1",
     "jest": "^24.7.1",
     "main-function": "^0.1.2",
