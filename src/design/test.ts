@@ -176,14 +176,17 @@ turning
   .spawn([], {includes: ['page:app:sidebar:idea']})
   .to([])
   .by('creating new idea', async ({page}) => {
-    await page.type(
-      '.idea-list > .idea-list-new-item input',
-      '这是一个忧伤的故事\n',
-    );
+    let text = `这是一个忧伤的故事 ${Math.random()}`;
+
+    await page.type('.idea-list > .idea-list-new-item input', `${text}\n`);
 
     await waitForSyncing(page);
 
-    return {page};
+    await expect(page).toMatchElement('.idea-list-item', {text});
+
+    return {
+      page,
+    };
   });
 
 turning.ensure(['page:app:workbench.task', 'page:app:sidebar.achievement']);

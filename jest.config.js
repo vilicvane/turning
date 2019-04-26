@@ -1,5 +1,6 @@
 module.exports = {
   preset: 'ts-jest',
+  setupFilesAfterEnv: ['expect-puppeteer'],
   testEnvironment: 'node',
 
   testMatch: ['<rootDir>/bld/design/test.js'],

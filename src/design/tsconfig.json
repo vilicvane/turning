@@ -3,7 +3,7 @@
   "compilerOptions": {
     "composite": true,
 
-    "types": ["node", "jest"],
+    "types": ["node", "jest", "expect-puppeteer"],
 
     "declaration": true,
 
