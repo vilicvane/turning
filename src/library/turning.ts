@@ -5,6 +5,7 @@ import {
   InitializeNode,
   SpawnNode,
   TransformNode,
+  TransformStateMatchingOptions,
   TurnNode,
 } from './nodes';
 
@@ -81,14 +82,20 @@ export class Turning<TContext> {
     return node;
   }
 
-  turn(states: string[]): TurnNode<TContext> {
-    let node = new TurnNode<TContext>(states);
+  turn(
+    states: string[],
+    {includes = [], excludes = []}: TransformStateMatchingOptions = {},
+  ): TurnNode<TContext> {
+    let node = new TurnNode<TContext>(states, includes, excludes);
     this.transformNodes.push(node);
     return node;
   }
 
-  spawn(states: string[]): SpawnNode<TContext> {
-    let node = new SpawnNode<TContext>(states);
+  spawn(
+    states: string[],
+    {includes = [], excludes = []}: TransformStateMatchingOptions = {},
+  ): SpawnNode<TContext> {
+    let node = new SpawnNode<TContext>(states, includes, excludes);
     this.transformNodes.push(node);
     return node;
   }
@@ -221,6 +228,14 @@ export class Turning<TContext> {
     currentPathStarts: PathStart[],
     {depth, repeatCountMap, parentPathStart}: SearchPathContext,
   ): void {
+    let defineNodeMap = this.defineNodeMap;
+
+    for (let state of states) {
+      if (!defineNodeMap.has(state)) {
+        throw new Error(`State "${state}" is not defined`);
+      }
+    }
+
     if (depth >= this.maxDepth) {
       currentPathStarts.push(parentPathStart);
       return;

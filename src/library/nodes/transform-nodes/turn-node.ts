@@ -12,12 +12,6 @@ export class TurnNode<TContext = unknown> extends AbstractTransformNode<
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
 
-  constructor(obsoleteStatePatterns: string[]) {
-    super();
-
-    this.obsoleteStatePatterns = obsoleteStatePatterns;
-  }
-
   /** @internal */
   get description(): string {
     let description = `Turn [${this.obsoleteStatePatterns}] to [${

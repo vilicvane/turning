@@ -11,6 +11,11 @@ export type TransformHandler<TContext = unknown> = (
   context: TContext,
 ) => Promise<TContext | void> | TContext | void;
 
+export interface TransformStateMatchingOptions {
+  includes?: string[];
+  excludes?: string[];
+}
+
 abstract class TransformNode<TContext = unknown> {
   /** @internal */
   readonly id = ++lastTransformNodeId;
@@ -18,7 +23,6 @@ abstract class TransformNode<TContext = unknown> {
   /** @internal */
   rawDescription!: string;
 
-  protected obsoleteStatePatterns!: string[];
   protected newStates!: string[];
 
   /** @internal */
@@ -26,6 +30,12 @@ abstract class TransformNode<TContext = unknown> {
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
+
+  constructor(
+    protected obsoleteStatePatterns: string[],
+    protected stateMatchingIncludePatterns: string[],
+    protected stateMatchingExcludePatterns: string[],
+  ) {}
 
   /** @internal */
   abstract get description(): string;
@@ -35,17 +45,27 @@ abstract class TransformNode<TContext = unknown> {
     states = [...states];
 
     let obsoleteStatePatterns = this.obsoleteStatePatterns;
+    let stateMatchingIncludePatterns = this.stateMatchingIncludePatterns;
+    let stateMatchingExcludePatterns = this.stateMatchingExcludePatterns;
+
     let newStates = this.newStates;
 
     assert(obsoleteStatePatterns);
     assert(newStates);
 
-    for (let pattern of obsoleteStatePatterns) {
-      let matched = match(states, pattern);
-
-      if (!matched.length) {
+    for (let pattern of [
+      ...obsoleteStatePatterns,
+      ...stateMatchingIncludePatterns,
+    ]) {
+      // For every obsolete state pattern or state pattern, it has at least one
+      // corespondent state
+      if (match(states, pattern).length === 0) {
         return undefined;
       }
+    }
+
+    if (match.some(states, stateMatchingExcludePatterns)) {
+      return undefined;
     }
 
     states = match.not(states, obsoleteStatePatterns);

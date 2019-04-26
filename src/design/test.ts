@@ -30,7 +30,15 @@ let turning = new Turning<Context>({
   test,
 });
 
+turning.define('session:account:not-logged-in').test(async ({page}) => {
+  // ...
+});
+
 turning.define('session:account:logged-in').test(async ({page}) => {
+  // ...
+});
+
+turning.define('session:user:not-selected').test(async ({page}) => {
   // ...
 });
 
@@ -45,6 +53,8 @@ turning.define('page:home').test(async ({page}) => {
 turning.define('page:login').test(async ({page}) => {
   await page.waitFor('.login-view');
 });
+
+turning.define('page:app');
 
 turning.define('page:app:sidebar:default').test(async ({page}) => {
   await page.waitFor('.sidebar');
@@ -75,7 +85,6 @@ turning
     'session:account:not-logged-in',
     'session:user:not-selected',
     'page:home',
-    'context:not-spawned',
   ])
   .by('opening new page', async () => {
     await page.goto('http://localhost:8080/logout');
@@ -119,7 +128,7 @@ turning
   });
 
 turning
-  .turn(['page:app:!(kanban-list)'])
+  .turn(['page:app:*'], {excludes: ['page:app:kanban-list']})
   .to(['page:app:kanban-list'])
   .by('clicking task hub link in navigation bar', async ({page}) => {
     await page.click('.header-nav .kanban-list-link');
@@ -129,7 +138,7 @@ turning
   });
 
 turning
-  .turn(['page:app:!(task-hub)'])
+  .turn(['page:app:*'], {excludes: ['page:app:task-hub']})
   .to(['page:app:task-hub'])
   .by('clicking task hub link in navigation bar', async ({page}) => {
     await page.click('.header-nav .task-hub-link');
@@ -139,7 +148,7 @@ turning
   });
 
 turning
-  .turn(['page:app:sidebar:!(achievements)'])
+  .turn(['page:app:sidebar:*'], {excludes: ['page:app:sidebar:achievements']})
   .to(['page:app:sidebar:achievements'])
   .by('clicking sidebar avatar', async ({page}) => {
     await page.click('.normal-sidebar-nav-link.achievements-link');
@@ -149,13 +158,25 @@ turning
   });
 
 turning
-  .turn(['page:app:sidebar:!(idea)'])
+  .turn(['page:app:sidebar:*'], {excludes: ['page:app:sidebar:idea']})
   .to(['page:app:sidebar:idea'])
   .by('clicking sidebar avatar', async ({page}) => {
     await page.click('.normal-sidebar-nav-link.idea-link');
   })
   .test(async ({page}) => {
     // ...
+  });
+
+turning
+  .spawn([], {includes: ['page:app:sidebar:idea']})
+  .to([])
+  .by('creating new idea', async ({page}) => {
+    await page.type(
+      '.idea-list > .idea-list-new-item input',
+      '这是一个忧伤的故事\n',
+    );
+
+    return {page};
   });
 
 turning.ensure(['page:app:workbench.task', 'page:app:sidebar.achievement']);
