@@ -4,9 +4,17 @@ export type TestHandler<TContext = unknown> = (
 
 export interface PathNode {
   /** @internal */
-  id: number;
-  /** @internal */
   _alias: string | undefined;
+
+  /** @internal */
+  rawDescription: string;
+
   /** @internal */
   testHandler: TestHandler | undefined;
+
+  /** @internal */
+  _depth: number | undefined;
+
+  /** @internal */
+  blockedTransformAliases: string[] | undefined;
 }

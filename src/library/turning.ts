@@ -1,18 +1,20 @@
 import _ from 'lodash';
+import match from 'micromatch';
 
 import {
   DefineNode,
   InitializeNode,
   PathNode,
-  ResultNode,
   SpawnNode,
   TransformNode,
-  TransformStateMatchingOptions,
+  TransformNodeOptions,
   TurnNode,
 } from './nodes';
 
 const DEFAULT_MAX_DEPTH = 10;
 const DEFAULT_MAX_REPEAT = 1;
+
+const CONTEXT_SKIPPED: any = {};
 
 interface IPathVia {
   caseNameOnEnd: string | undefined;
@@ -39,9 +41,11 @@ type PathVia = PathInitialize | PathSpawn | PathTurn;
 
 interface SearchPathContext {
   depth: number;
-  repeatCountMap: Map<number, number>;
+  remainingDepth: number;
+  repeatCountMap: Map<TransformNode, number>;
   parentPathStart: PathStart;
   searchCases: SearchCase[];
+  blockedTransformAliasSet: Set<string>;
 }
 
 interface SearchCase {
@@ -49,16 +53,25 @@ interface SearchCase {
   rest: PathNode[];
 }
 
-export type GeneralCaseNode<TContext = unknown> = string | ResultNode<TContext>;
+interface SearchNextOptions {
+  maxDepth: number;
+  maxRepeat: number;
+}
 
 export interface ITurningTestAdapter {
   describe(name: string, callback: () => void): void;
   test(name: string, callback: () => Promise<void>): void;
 }
 
-export interface TurningOptions {
+export interface TurningSearchOptions {
   maxDepth?: number;
   maxRepeat?: number;
+  allowUnreachable?: boolean;
+  verbose?: boolean;
+}
+
+export interface TurningTestOptions extends TurningSearchOptions {
+  only?: string[];
 }
 
 export class Turning<TContext> {
@@ -67,21 +80,9 @@ export class Turning<TContext> {
   private initializeNodes: InitializeNode<TContext>[] = [];
   private transformNodes: TransformNode<TContext>[] = [];
 
-  private nameToGeneralCasePathNodesMap = new Map<string, GeneralCaseNode[]>();
+  private nameToCasePathNodeAliasesMap = new Map<string, string[]>();
 
-  private maxDepth: number;
-  private maxRepeat: number;
-
-  constructor(
-    private testAdapter: ITurningTestAdapter,
-    {
-      maxDepth = DEFAULT_MAX_DEPTH,
-      maxRepeat = DEFAULT_MAX_REPEAT,
-    }: TurningOptions = {},
-  ) {
-    this.maxDepth = maxDepth;
-    this.maxRepeat = maxRepeat;
-  }
+  constructor(private testAdapter: ITurningTestAdapter) {}
 
   define(state: string): DefineNode<TContext> {
     let node = new DefineNode<TContext>(state);
@@ -97,34 +98,43 @@ export class Turning<TContext> {
 
   turn(
     states: string[],
-    {includes = [], excludes = []}: TransformStateMatchingOptions = {},
+    options: TransformNodeOptions = {},
   ): TurnNode<TContext> {
-    let node = new TurnNode<TContext>(states, includes, excludes);
+    let node = new TurnNode<TContext>(states, options);
     this.transformNodes.push(node);
     return node;
   }
 
   spawn(
     states: string[],
-    {includes = [], excludes = []}: TransformStateMatchingOptions = {},
+    options: TransformNodeOptions = {},
   ): SpawnNode<TContext> {
-    let node = new SpawnNode<TContext>(states, includes, excludes);
+    let node = new SpawnNode<TContext>(states, options);
     this.transformNodes.push(node);
     return node;
   }
 
-  case(name: string, nodes: GeneralCaseNode<TContext>[]): void {
-    let nameToGeneralCasePathNodesMap = this.nameToGeneralCasePathNodesMap;
+  case(name: string, aliases: string[]): void {
+    let nameToCasePathNodeAliasesMap = this.nameToCasePathNodeAliasesMap;
 
-    if (nameToGeneralCasePathNodesMap.has(name)) {
+    if (nameToCasePathNodeAliasesMap.has(name)) {
       throw new Error(`Case name "${name}" has already been taken`);
     }
 
-    nameToGeneralCasePathNodesMap.set(name, nodes);
+    nameToCasePathNodeAliasesMap.set(name, aliases);
   }
 
-  test(): void {
-    let pathInitializes = this.search();
+  test(options?: TurningTestOptions): void;
+  test({
+    only: onlyTestCaseIds,
+    verbose = false,
+    ...searchOptions
+  }: TurningTestOptions = {}): void {
+    let onlyTestCaseIdSet =
+      onlyTestCaseIds &&
+      new Set(_.flatMap(onlyTestCaseIds, getRelatedTestCaseIds));
+
+    let pathInitializes = this.search(searchOptions);
 
     let {describe, test} = this.testAdapter;
 
@@ -135,11 +145,6 @@ export class Turning<TContext> {
     ): void => {
       for (let [index, pathStart] of pathStarts.entries()) {
         let {
-          caseNameOnEnd: startCaseNameOnEnd,
-          node: startNode,
-          states: startStates,
-        } = pathStart;
-        let {
           turns: pathTurns,
           spawns: nextPathSpawns,
         } = getPathTurnsAndNextSpawns(pathStart);
@@ -148,14 +153,23 @@ export class Turning<TContext> {
           parentTestCaseId ? `${parentTestCaseId}.` : ''
         }${index + 1}`;
 
+        if (onlyTestCaseIdSet && !onlyTestCaseIdSet.has(testCaseId)) {
+          continue;
+        }
+
         let describeName = `Test Case ${testCaseId}`;
 
         describe(describeName, () => {
           let context: unknown;
 
-          test(
-            appendCaseNameOnEnd(startNode.description, startCaseNameOnEnd),
-            async () => {
+          test(buildTestCaseName(pathStart, verbose), async () => {
+            if (context === CONTEXT_SKIPPED) {
+              return;
+            }
+
+            try {
+              let {node: startNode, states: startStates} = pathStart;
+
               if (startNode instanceof InitializeNode) {
                 context = await startNode.initialize();
               } else {
@@ -177,24 +191,33 @@ export class Turning<TContext> {
               await this.testStates(context, startStates);
 
               await startNode.test(context);
-            },
-          );
+            } catch (error) {
+              context = CONTEXT_SKIPPED;
 
-          for (let {
-            caseNameOnEnd: turnCaseNameOnEnd,
-            node: turnNode,
-            states: turnStates,
-          } of pathTurns) {
-            test(
-              appendCaseNameOnEnd(turnNode.description, turnCaseNameOnEnd),
-              async () => {
+              throw error;
+            }
+          });
+
+          for (let pathTurn of pathTurns) {
+            test(buildTestCaseName(pathTurn, verbose), async () => {
+              if (context === CONTEXT_SKIPPED) {
+                return;
+              }
+
+              try {
+                let {node: turnNode, states: turnStates} = pathTurn;
+
                 context = await turnNode.transform(context);
 
                 await this.testStates(context, turnStates);
 
                 await turnNode.test(context);
-              },
-            );
+              } catch (error) {
+                context = CONTEXT_SKIPPED;
+
+                throw error;
+              }
+            });
           }
 
           if (nextPathSpawns) {
@@ -207,10 +230,23 @@ export class Turning<TContext> {
     defineNextTests(pathInitializes);
   }
 
-  search(): PathInitialize[] {
+  search(options?: TurningSearchOptions): PathInitialize[];
+  search({
+    maxDepth = DEFAULT_MAX_DEPTH,
+    maxRepeat = DEFAULT_MAX_REPEAT,
+    allowUnreachable = false,
+  }: TurningSearchOptions = {}): PathInitialize[] {
+    let searchNextOptions: SearchNextOptions = {
+      maxDepth,
+      maxRepeat,
+    };
+
+    this.validateStatesAndStatePatterns();
+
     let pathInitializes: PathInitialize[] = [];
 
     let searchCases = this.buildSearchCases();
+    let neverReachedStateSet = new Set(this.defineNodeMap.keys());
 
     for (let initializeNode of this.initializeNodes) {
       let nextSearchCases = removeAndGetMatchingRestSearchCases(
@@ -226,17 +262,78 @@ export class Turning<TContext> {
         states,
       };
 
-      this.searchNext(states, pathInitializes, {
-        depth: 0,
-        repeatCountMap: new Map(),
-        parentPathStart: pathInitialize,
-        searchCases: nextSearchCases,
-      });
+      this.searchNext(
+        states,
+        pathInitializes,
+        neverReachedStateSet,
+        {
+          depth: 0,
+          remainingDepth: initializeNode._depth || Infinity,
+          repeatCountMap: new Map(),
+          parentPathStart: pathInitialize,
+          searchCases: nextSearchCases,
+          blockedTransformAliasSet: new Set(
+            initializeNode.blockedTransformAliases,
+          ),
+        },
+        searchNextOptions,
+      );
     }
 
     assertEmptySearchCases(searchCases, true);
 
+    if (!allowUnreachable) {
+      assertNoUnreachableStates(neverReachedStateSet);
+    }
+
+    let unreachableTransformNodes = this.transformNodes.filter(
+      node => !node.reached,
+    );
+
+    assertNoUnreachableTransforms(unreachableTransformNodes);
+
     return pathInitializes;
+  }
+
+  private validateStatesAndStatePatterns(): void {
+    let stateSet = new Set<string>();
+    let statePatternSet = new Set<string>();
+
+    for (let initializeNode of this.initializeNodes) {
+      for (let state of initializeNode.states) {
+        stateSet.add(state);
+      }
+    }
+
+    for (let transformNode of this.transformNodes) {
+      for (let state of transformNode.newStates) {
+        stateSet.add(state);
+      }
+
+      for (let statePattern of [
+        ...transformNode.obsoleteStatePatterns,
+        ...transformNode.relatedStatePatterns,
+      ]) {
+        statePatternSet.add(statePattern);
+      }
+    }
+
+    let definedStates = Array.from(this.defineNodeMap.keys());
+    let definedStateSet = new Set(definedStates);
+
+    for (let state of stateSet) {
+      if (!definedStateSet.has(state)) {
+        throw new Error(`State "${state}" is not defined`);
+      }
+    }
+
+    for (let statePattern of statePatternSet) {
+      if (match(definedStates, statePattern).length === 0) {
+        throw new Error(
+          `State pattern "${statePattern}" does not match any of the states defined`,
+        );
+      }
+    }
   }
 
   private buildSearchCases(): SearchCase[] {
@@ -250,23 +347,14 @@ export class Turning<TContext> {
 
     let searchCases: SearchCase[] = [];
 
-    for (let [name, generalCasePathNodes] of this
-      .nameToGeneralCasePathNodesMap) {
+    for (let [name, aliases] of this.nameToCasePathNodeAliasesMap) {
       let pathNodes: PathNode[] = [];
 
-      for (let generalCasePathNode of generalCasePathNodes) {
-        let pathNode: PathNode;
+      for (let alias of aliases) {
+        let pathNode = aliasToPathNodeMap.get(alias);
 
-        if (typeof generalCasePathNode === 'string') {
-          let aliasedPathNode = aliasToPathNodeMap.get(generalCasePathNode);
-
-          if (!aliasedPathNode) {
-            throw new Error(`Unknown node alias "${generalCasePathNode}"`);
-          }
-
-          pathNode = aliasedPathNode;
-        } else {
-          pathNode = generalCasePathNode.node;
+        if (!pathNode) {
+          throw new Error(`Unknown node alias "${alias}"`);
         }
 
         pathNodes.push(pathNode);
@@ -284,26 +372,33 @@ export class Turning<TContext> {
   private searchNext(
     states: string[],
     currentPathStarts: PathStart[],
-    {depth, repeatCountMap, parentPathStart, searchCases}: SearchPathContext,
+    neverReachedStateSet: Set<string>,
+    {
+      depth,
+      remainingDepth,
+      repeatCountMap,
+      parentPathStart,
+      searchCases,
+      blockedTransformAliasSet,
+    }: SearchPathContext,
+    options: SearchNextOptions,
   ): void {
-    let defineNodeMap = this.defineNodeMap;
-
     for (let state of states) {
-      if (!defineNodeMap.has(state)) {
-        throw new Error(`State "${state}" is not defined`);
-      }
+      neverReachedStateSet.delete(state);
     }
 
     let hasTransformation = false;
 
     for (let transformNode of this.transformNodes) {
-      let id = transformNode.id;
-      let repeatCount = repeatCountMap.get(id) || 0;
+      let alias = transformNode._alias;
+
+      if (alias && blockedTransformAliasSet.has(alias)) {
+        continue;
+      }
 
       let transformedStates = transformNode.transformStates(states);
 
       if (!transformedStates) {
-        // from states not matching
         continue;
       }
 
@@ -312,14 +407,16 @@ export class Turning<TContext> {
         transformNode,
       );
 
+      let repeatCount = repeatCountMap.get(transformNode) || 0;
+
       if (
         !nextSearchCases.length &&
-        (depth >= this.maxDepth || repeatCount >= this.maxRepeat)
+        (depth >= options.maxDepth ||
+          remainingDepth <= 0 ||
+          repeatCount >= options.maxRepeat)
       ) {
         continue;
       }
-
-      repeatCount++;
 
       let pathStarts: PathStart[];
       let pathStart: PathStart;
@@ -352,12 +449,26 @@ export class Turning<TContext> {
         };
       }
 
-      this.searchNext(transformedStates, pathStarts, {
-        depth: depth + 1,
-        repeatCountMap: new Map([...repeatCountMap, [id, repeatCount]]),
-        parentPathStart: pathStart,
-        searchCases: nextSearchCases,
-      });
+      this.searchNext(
+        transformedStates,
+        pathStarts,
+        neverReachedStateSet,
+        {
+          depth: depth + 1,
+          remainingDepth: transformNode._depth || remainingDepth - 1,
+          repeatCountMap: new Map([
+            ...repeatCountMap,
+            [transformNode, repeatCount + 1],
+          ]),
+          parentPathStart: pathStart,
+          searchCases: nextSearchCases,
+          blockedTransformAliasSet: new Set([
+            ...blockedTransformAliasSet,
+            ...(transformNode.blockedTransformAliases || []),
+          ]),
+        },
+        options,
+      );
 
       if (!hasTransformation) {
         hasTransformation = true;
@@ -375,11 +486,7 @@ export class Turning<TContext> {
     let defineNodeMap = this.defineNodeMap;
 
     for (let state of states) {
-      let defineNode = defineNodeMap.get(state);
-
-      if (!defineNode) {
-        continue;
-      }
+      let defineNode = defineNodeMap.get(state)!;
 
       let {testHandler} = defineNode;
 
@@ -436,6 +543,11 @@ function getPathTurnsAndNextSpawns(
   };
 }
 
+function getRelatedTestCaseIds(testCaseId: string): string[] {
+  let parts = testCaseId.split('.');
+  return parts.map((_part, index) => parts.slice(0, index + 1).join('.'));
+}
+
 function removeAndGetMatchingRestSearchCases(
   searchCases: SearchCase[],
   node: PathNode,
@@ -466,9 +578,37 @@ function assertEmptySearchCases(
         searchCase =>
           `  ${searchCase.name}: ${[
             ...(initialize ? [] : ['...']),
-            ...searchCase.rest.map(node => node._alias || `[node ${node.id}]`),
+            ...searchCase.rest.map(
+              node => node._alias || `[by] ${node.rawDescription}`,
+            ),
           ].join(' -> ')}`,
       )
+      .join('\n')}`,
+  );
+}
+
+function assertNoUnreachableStates(neverReachedStateSet: Set<string>): void {
+  if (!neverReachedStateSet.size) {
+    return;
+  }
+
+  let neverReachedStates = Array.from(neverReachedStateSet);
+
+  throw new Error(
+    `Unreachable states:\n${neverReachedStates
+      .map(state => `  ${state}`)
+      .join('\n')}`,
+  );
+}
+
+function assertNoUnreachableTransforms(transformNodes: TransformNode[]): void {
+  if (!transformNodes.length) {
+    return;
+  }
+
+  throw new Error(
+    `Unreachable transforms:\n${transformNodes
+      .map(node => `  ${node._alias || `[by] ${node.rawDescription}`}`)
       .join('\n')}`,
   );
 }
@@ -478,9 +618,19 @@ function getCaseNameOnEnd(searchCases: SearchCase[]): string | undefined {
   return searchCaseOnEnd && searchCaseOnEnd.name;
 }
 
-function appendCaseNameOnEnd(
-  description: string,
-  caseNameOnEnd: string | undefined,
+function buildTestCaseName(
+  {node, caseNameOnEnd, states}: PathVia,
+  verbose: boolean,
 ): string {
-  return `${description}${caseNameOnEnd ? ` <${caseNameOnEnd}>` : ''}`;
+  let name = node.description;
+
+  if (caseNameOnEnd) {
+    name += ` <${caseNameOnEnd}>`;
+  }
+
+  if (verbose) {
+    name += `, current states [${states.join(',')}]`;
+  }
+
+  return name;
 }

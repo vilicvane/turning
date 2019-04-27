@@ -1,5 +1,3 @@
-import {generatePathNodeId} from '../@utils';
-
 import {PathNode, TestHandler} from './common';
 import {ResultNode} from './result-node';
 
@@ -8,9 +6,6 @@ export type InitializeHandler<TContext = unknown> = () =>
   | TContext;
 
 export class InitializeNode<TContext = unknown> implements PathNode {
-  /** @internal */
-  readonly id = generatePathNodeId();
-
   /** @internal */
   _alias: string | undefined;
 
@@ -22,6 +17,12 @@ export class InitializeNode<TContext = unknown> implements PathNode {
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
+
+  /** @internal */
+  _depth: number | undefined;
+
+  /** @internal */
+  blockedTransformAliases: string[] | undefined;
 
   constructor(
     /** @internal */
@@ -41,6 +42,16 @@ export class InitializeNode<TContext = unknown> implements PathNode {
 
   alias(alias: string): this {
     this._alias = alias;
+    return this;
+  }
+
+  block(aliases: string[]): this {
+    this.blockedTransformAliases = aliases;
+    return this;
+  }
+
+  depth(depth: number): this {
+    this._depth = depth;
     return this;
   }
 

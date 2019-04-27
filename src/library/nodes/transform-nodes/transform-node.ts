@@ -3,29 +3,38 @@ import assert from 'assert';
 import _ from 'lodash';
 import match from 'micromatch';
 
-import {generatePathNodeId} from '../../@utils';
 import {PathNode, TestHandler} from '../common';
+import {ResultNode} from '../result-node';
+
+interface TransformMatchOptions {
+  patterns: string[];
+  negativePatterns: string[];
+}
 
 export type TransformHandler<TContext = unknown> = (
   context: TContext,
 ) => Promise<TContext | void> | TContext | void;
 
-export interface TransformStateMatchingOptions {
-  includes?: string[];
-  excludes?: string[];
+export interface NegativeStateMatchingPattern {
+  not: string;
+}
+
+export type StateMatchingPattern = string | NegativeStateMatchingPattern;
+
+export interface TransformNodeOptions {
+  match?: StateMatchingPattern[];
+  matches?: StateMatchingPattern[][];
 }
 
 abstract class TransformNode<TContext = unknown> implements PathNode {
-  /** @internal */
-  readonly id = generatePathNodeId();
-
   /** @internal */
   _alias: string | undefined;
 
   /** @internal */
   rawDescription!: string;
 
-  protected newStates!: string[];
+  /** @internal */
+  newStates!: string[];
 
   /** @internal */
   handler!: TransformHandler<TContext>;
@@ -33,11 +42,59 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
 
+  /** @internal */
+  reached = false;
+
+  /** @internal */
+  _depth: number | undefined;
+
+  /** @internal */
+  blockedTransformAliases: string[] | undefined;
+
+  private matchOptionsList: TransformMatchOptions[];
+
   constructor(
-    protected obsoleteStatePatterns: string[],
-    protected stateMatchingIncludePatterns: string[],
-    protected stateMatchingExcludePatterns: string[],
-  ) {}
+    /** @internal */
+    readonly obsoleteStatePatterns: string[],
+    {match: matchPatterns, matches: matchPatternsList}: TransformNodeOptions,
+  ) {
+    if (matchPatterns) {
+      matchPatternsList = [matchPatterns];
+    } else if (!matchPatternsList) {
+      matchPatternsList = [];
+    }
+
+    let matchOptionsList: TransformMatchOptions[] = [];
+
+    for (let patterns of matchPatternsList) {
+      let matchingPatterns: string[] = [];
+      let negativeMatchingPatterns: string[] = [];
+
+      for (let pattern of patterns) {
+        if (typeof pattern === 'string') {
+          matchingPatterns.push(pattern);
+        } else {
+          negativeMatchingPatterns.push(pattern.not);
+        }
+      }
+
+      matchOptionsList.push({
+        patterns: matchingPatterns,
+        negativePatterns: negativeMatchingPatterns,
+      });
+    }
+
+    this.matchOptionsList = matchOptionsList;
+  }
+
+  get relatedStatePatterns(): string[] {
+    return _.union(
+      ...this.matchOptionsList.map(matchOptions => [
+        ...matchOptions.patterns,
+        ...matchOptions.negativePatterns,
+      ]),
+    );
+  }
 
   /** @internal */
   abstract get description(): string;
@@ -47,30 +104,47 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
     states = [...states];
 
     let obsoleteStatePatterns = this.obsoleteStatePatterns;
-    let stateMatchingIncludePatterns = this.stateMatchingIncludePatterns;
-    let stateMatchingExcludePatterns = this.stateMatchingExcludePatterns;
 
     let newStates = this.newStates;
 
     assert(obsoleteStatePatterns);
     assert(newStates);
 
-    for (let pattern of [
-      ...obsoleteStatePatterns,
-      ...stateMatchingIncludePatterns,
-    ]) {
-      // For every obsolete state pattern or state pattern, it has at least one
-      // corespondent state
+    for (let pattern of obsoleteStatePatterns) {
+      // For every obsolete state pattern, it has at least one corespondent
+      // state
       if (match(states, pattern).length === 0) {
         return undefined;
       }
     }
 
-    if (match.some(states, stateMatchingExcludePatterns)) {
+    let matchOptionsList = this.matchOptionsList;
+
+    let matched =
+      !matchOptionsList.length ||
+      matchOptionsList.some(({patterns, negativePatterns}) => {
+        for (let pattern of patterns) {
+          if (match(states, pattern).length === 0) {
+            return false;
+          }
+        }
+
+        if (match.some(states, negativePatterns)) {
+          return false;
+        }
+
+        return true;
+      });
+
+    if (!matched) {
       return undefined;
     }
 
-    states = match.not(states, obsoleteStatePatterns);
+    this.reached = true;
+
+    if (obsoleteStatePatterns.length) {
+      states = match.not(states, obsoleteStatePatterns);
+    }
 
     return _.union(states, newStates);
   }
@@ -99,3 +173,39 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
 export interface ITransformNode extends TransformNode {}
 
 export const AbstractTransformNode = TransformNode;
+
+export class TransformToChain<
+  TContext = unknown,
+  TTransformHandler extends TransformHandler<TContext> = TransformHandler<
+    TContext
+  >
+> {
+  constructor(
+    /** @internal */
+    readonly node: TransformNode<TContext>,
+  ) {}
+
+  alias(alias: string): this {
+    this.node._alias = alias;
+    return this;
+  }
+
+  block(aliases: string[]): this {
+    this.node.blockedTransformAliases = aliases;
+    return this;
+  }
+
+  depth(depth: number): this {
+    this.node._depth = depth;
+    return this;
+  }
+
+  by(description: string, handler: TTransformHandler): ResultNode<TContext> {
+    let node = this.node;
+
+    node.rawDescription = description;
+    node.handler = handler;
+
+    return new ResultNode(node);
+  }
+}

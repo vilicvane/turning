@@ -130,7 +130,7 @@ turning
   });
 
 turning
-  .turn(['page:app:*'], {excludes: ['page:app:kanban-list']})
+  .turn(['page:app:*'], {match: [{not: 'page:app:kanban-list'}]})
   .to(['page:app:kanban-list'])
   .alias('click navbar kanban list link')
   .by('clicking task hub link in navbar', async ({page}) => {
@@ -138,7 +138,7 @@ turning
   });
 
 turning
-  .turn(['page:app:*'], {excludes: ['page:app:task-hub']})
+  .turn(['page:app:*'], {match: [{not: 'page:app:task-hub'}]})
   .to(['page:app:task-hub'])
   .alias('click navbar task hub link')
   .by('clicking task hub link in navbar', async ({page}) => {
@@ -146,21 +146,23 @@ turning
   });
 
 turning
-  .turn(['page:app:sidebar:*'], {excludes: ['page:app:sidebar:achievements']})
+  .turn(['page:app:sidebar:*'], {
+    match: [{not: 'page:app:sidebar:achievements'}],
+  })
   .to(['page:app:sidebar:achievements'])
   .by('clicking sidebar avatar', async ({page}) => {
     await page.click('.normal-sidebar-nav-link.achievements-link');
   });
 
 turning
-  .turn(['page:app:sidebar:*'], {excludes: ['page:app:sidebar:idea']})
+  .turn(['page:app:sidebar:*'], {match: [{not: 'page:app:sidebar:idea'}]})
   .to(['page:app:sidebar:idea'])
   .by('clicking sidebar avatar', async ({page}) => {
     await page.click('.normal-sidebar-nav-link.idea-link');
   });
 
 turning
-  .spawn([], {includes: ['page:app:sidebar:idea']})
+  .spawn([], {match: ['page:app:sidebar:idea']})
   .to([])
   .by('creating new idea', async ({page}) => {
     let text = `这是一个忧伤的故事 ${Math.random()}`;

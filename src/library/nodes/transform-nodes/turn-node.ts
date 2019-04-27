@@ -1,7 +1,10 @@
 import {TestHandler} from '../common';
-import {ResultNode} from '../result-node';
 
-import {AbstractTransformNode, TransformHandler} from './transform-node';
+import {
+  AbstractTransformNode,
+  TransformHandler,
+  TransformToChain,
+} from './transform-node';
 
 export class TurnNode<TContext = unknown> extends AbstractTransformNode<
   TContext
@@ -25,31 +28,9 @@ export class TurnNode<TContext = unknown> extends AbstractTransformNode<
     return description;
   }
 
-  to(states: string[]): TurnToChain<TContext> {
+  to(states: string[]): TransformToChain<TContext> {
     this.newStates = states;
 
-    return new TurnToChain(this);
-  }
-}
-
-export class TurnToChain<TContext = unknown> {
-  constructor(
-    /** @internal */
-    readonly node: TurnNode<TContext>,
-  ) {}
-
-  alias(alias: string): this {
-    this.node._alias = alias;
-    return this;
-  }
-
-  by(
-    description: string,
-    handler: TransformHandler<TContext>,
-  ): ResultNode<TContext> {
-    this.node.rawDescription = description;
-    this.node.handler = handler;
-
-    return new ResultNode(this.node);
+    return new TransformToChain(this);
   }
 }
