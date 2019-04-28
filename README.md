@@ -132,7 +132,7 @@ turning
 turning.test();
 ```
 
-For now, you can checkout [src/design/test.ts](src/design/test.ts) for more usages.
+For now, you can checkout [makeflow-e2e](https://github.com/makeflow/makeflow-e2e) for more usages.
 
 ## Transformations
 
