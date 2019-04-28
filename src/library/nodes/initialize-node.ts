@@ -10,7 +10,7 @@ export class InitializeNode<TContext = unknown> implements PathNode {
   _alias: string | undefined;
 
   /** @internal */
-  rawDescription!: string;
+  _description!: string;
 
   /** @internal */
   handler!: InitializeHandler<TContext>;
@@ -20,6 +20,9 @@ export class InitializeNode<TContext = unknown> implements PathNode {
 
   /** @internal */
   _depth: number | undefined;
+
+  /** @internal */
+  _manual: boolean | undefined;
 
   /** @internal */
   blockedTransformAliases: string[] | undefined;
@@ -33,8 +36,8 @@ export class InitializeNode<TContext = unknown> implements PathNode {
   get description(): string {
     let description = `Initialize [${this.states}]`;
 
-    if (this.rawDescription) {
-      description += ` by ${this.rawDescription}`;
+    if (this._description) {
+      description += ` by ${this._description}`;
     }
 
     return description;
@@ -55,11 +58,16 @@ export class InitializeNode<TContext = unknown> implements PathNode {
     return this;
   }
 
+  manual(): this {
+    this._manual = true;
+    return this;
+  }
+
   by(
     description: string,
     handler: InitializeHandler<TContext>,
   ): ResultNode<TContext> {
-    this.rawDescription = description;
+    this._description = description;
     this.handler = handler;
 
     return new ResultNode(this);

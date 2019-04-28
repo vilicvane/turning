@@ -7,7 +7,10 @@ export interface PathNode {
   _alias: string | undefined;
 
   /** @internal */
-  rawDescription: string;
+  _description: string;
+
+  /** @internal */
+  description: string;
 
   /** @internal */
   testHandler: TestHandler | undefined;

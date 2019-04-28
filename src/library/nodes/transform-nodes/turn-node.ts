@@ -21,8 +21,8 @@ export class TurnNode<TContext = unknown> extends AbstractTransformNode<
       this.newStates
     }]`;
 
-    if (this.rawDescription) {
-      description += ` by ${this.rawDescription}`;
+    if (this._description) {
+      description += ` by ${this._description}`;
     }
 
     return description;

@@ -40,15 +40,15 @@ type PathStart = PathInitialize | PathSpawn;
 type PathVia = PathInitialize | PathSpawn | PathTurn;
 
 interface SearchPathContext {
-  depth: number;
   remainingDepth: number;
   repeatCountMap: Map<TransformNode, number>;
   parentPathStart: PathStart;
-  searchCases: SearchCase[];
+  manualSearchCases: ManualSearchCase[];
+  manual: boolean;
   blockedTransformAliasSet: Set<string>;
 }
 
-interface SearchCase {
+interface ManualSearchCase {
   name: string;
   rest: PathNode[];
 }
@@ -245,19 +245,19 @@ export class Turning<TContext> {
 
     let pathInitializes: PathInitialize[] = [];
 
-    let searchCases = this.buildSearchCases();
+    let manualSearchCases = this.buildManualSearchCases();
     let neverReachedStateSet = new Set(this.defineNodeMap.keys());
 
     for (let initializeNode of this.initializeNodes) {
-      let nextSearchCases = removeAndGetMatchingRestSearchCases(
-        searchCases,
+      let nextManualSearchCases = removeAndGetMatchingRestManualSearchCases(
+        manualSearchCases,
         initializeNode,
       );
 
       let states = initializeNode.states;
 
       let pathInitialize: PathInitialize = {
-        caseNameOnEnd: getCaseNameOnEnd(nextSearchCases),
+        caseNameOnEnd: getCaseNameOnEnd(nextManualSearchCases),
         node: initializeNode,
         states,
       };
@@ -267,11 +267,14 @@ export class Turning<TContext> {
         pathInitializes,
         neverReachedStateSet,
         {
-          depth: 0,
-          remainingDepth: initializeNode._depth || Infinity,
+          remainingDepth:
+            typeof initializeNode._depth === 'number'
+              ? initializeNode._depth
+              : maxDepth,
           repeatCountMap: new Map(),
           parentPathStart: pathInitialize,
-          searchCases: nextSearchCases,
+          manualSearchCases: nextManualSearchCases,
+          manual: !!initializeNode._manual,
           blockedTransformAliasSet: new Set(
             initializeNode.blockedTransformAliases,
           ),
@@ -280,7 +283,7 @@ export class Turning<TContext> {
       );
     }
 
-    assertEmptySearchCases(searchCases, true);
+    assertEmptyManualSearchCases(manualSearchCases, true);
 
     if (!allowUnreachable) {
       assertNoUnreachableStates(neverReachedStateSet);
@@ -336,7 +339,7 @@ export class Turning<TContext> {
     }
   }
 
-  private buildSearchCases(): SearchCase[] {
+  private buildManualSearchCases(): ManualSearchCase[] {
     let aliasToPathNodeMap = new Map<string, PathNode>();
 
     for (let pathNode of [...this.initializeNodes, ...this.transformNodes]) {
@@ -345,7 +348,20 @@ export class Turning<TContext> {
       }
     }
 
-    let searchCases: SearchCase[] = [];
+    let blockedAliases = _.flatMap(
+      [...this.initializeNodes, ...this.transformNodes],
+      node => node.blockedTransformAliases || [],
+    );
+
+    let blockedAliasSet = new Set(blockedAliases);
+
+    for (let alias of blockedAliasSet) {
+      if (!aliasToPathNodeMap.has(alias)) {
+        throw new Error(`Unknown blocked node alias "${alias}"`);
+      }
+    }
+
+    let manualSearchCases: ManualSearchCase[] = [];
 
     for (let [name, aliases] of this.nameToCasePathNodeAliasesMap) {
       let pathNodes: PathNode[] = [];
@@ -354,19 +370,19 @@ export class Turning<TContext> {
         let pathNode = aliasToPathNodeMap.get(alias);
 
         if (!pathNode) {
-          throw new Error(`Unknown node alias "${alias}"`);
+          throw new Error(`Unknown node alias "${alias}" in case`);
         }
 
         pathNodes.push(pathNode);
       }
 
-      searchCases.push({
+      manualSearchCases.push({
         name,
         rest: pathNodes,
       });
     }
 
-    return searchCases;
+    return manualSearchCases;
   }
 
   private searchNext(
@@ -374,11 +390,11 @@ export class Turning<TContext> {
     currentPathStarts: PathStart[],
     neverReachedStateSet: Set<string>,
     {
-      depth,
       remainingDepth,
       repeatCountMap,
       parentPathStart,
-      searchCases,
+      manualSearchCases,
+      manual,
       blockedTransformAliasSet,
     }: SearchPathContext,
     options: SearchNextOptions,
@@ -402,18 +418,18 @@ export class Turning<TContext> {
         continue;
       }
 
-      let nextSearchCases = removeAndGetMatchingRestSearchCases(
-        searchCases,
+      let nextManualSearchCases = removeAndGetMatchingRestManualSearchCases(
+        manualSearchCases,
         transformNode,
       );
+
+      let nextManual = manual || !!transformNode._manual;
 
       let repeatCount = repeatCountMap.get(transformNode) || 0;
 
       if (
-        !nextSearchCases.length &&
-        (depth >= options.maxDepth ||
-          remainingDepth <= 0 ||
-          repeatCount >= options.maxRepeat)
+        !nextManualSearchCases.length &&
+        (nextManual || remainingDepth <= 0 || repeatCount >= options.maxRepeat)
       ) {
         continue;
       }
@@ -421,7 +437,7 @@ export class Turning<TContext> {
       let pathStarts: PathStart[];
       let pathStart: PathStart;
 
-      let caseNameOnEnd = getCaseNameOnEnd(nextSearchCases);
+      let caseNameOnEnd = getCaseNameOnEnd(nextManualSearchCases);
 
       if (transformNode instanceof TurnNode) {
         pathStarts = currentPathStarts;
@@ -454,14 +470,17 @@ export class Turning<TContext> {
         pathStarts,
         neverReachedStateSet,
         {
-          depth: depth + 1,
-          remainingDepth: transformNode._depth || remainingDepth - 1,
+          remainingDepth:
+            typeof transformNode._depth === 'number'
+              ? transformNode._depth
+              : remainingDepth - 1,
           repeatCountMap: new Map([
             ...repeatCountMap,
             [transformNode, repeatCount + 1],
           ]),
           parentPathStart: pathStart,
-          searchCases: nextSearchCases,
+          manualSearchCases: nextManualSearchCases,
+          manual: nextManual,
           blockedTransformAliasSet: new Set([
             ...blockedTransformAliasSet,
             ...(transformNode.blockedTransformAliases || []),
@@ -475,7 +494,7 @@ export class Turning<TContext> {
       }
     }
 
-    assertEmptySearchCases(searchCases, false);
+    assertEmptyManualSearchCases(manualSearchCases, false);
 
     if (!hasTransformation) {
       currentPathStarts.push(parentPathStart);
@@ -548,38 +567,42 @@ function getRelatedTestCaseIds(testCaseId: string): string[] {
   return parts.map((_part, index) => parts.slice(0, index + 1).join('.'));
 }
 
-function removeAndGetMatchingRestSearchCases(
-  searchCases: SearchCase[],
+function removeAndGetMatchingRestManualSearchCases(
+  manualSearchCases: ManualSearchCase[],
   node: PathNode,
-): SearchCase[] {
-  _.remove(searchCases, searchCase => !searchCase.rest.length);
-
-  return _.remove(searchCases, searchCase => searchCase.rest[0] === node).map(
-    ({name, rest}) => {
-      return {
-        name,
-        rest: rest.slice(1),
-      };
-    },
+): ManualSearchCase[] {
+  _.remove(
+    manualSearchCases,
+    manualSearchCase => !manualSearchCase.rest.length,
   );
+
+  return _.remove(
+    manualSearchCases,
+    manualSearchCase => manualSearchCase.rest[0] === node,
+  ).map(({name, rest}) => {
+    return {
+      name,
+      rest: rest.slice(1),
+    };
+  });
 }
 
-function assertEmptySearchCases(
-  searchCases: SearchCase[],
+function assertEmptyManualSearchCases(
+  manualSearchCases: ManualSearchCase[],
   initialize: boolean,
 ): void {
-  if (!searchCases.length) {
+  if (!manualSearchCases.length) {
     return;
   }
 
   throw new Error(
-    `Invalid manual cases:\n${searchCases
+    `Invalid manual cases:\n${manualSearchCases
       .map(
-        searchCase =>
-          `  ${searchCase.name}: ${[
+        manualSearchCase =>
+          `  ${manualSearchCase.name}: ${[
             ...(initialize ? [] : ['...']),
-            ...searchCase.rest.map(
-              node => node._alias || `[by] ${node.rawDescription}`,
+            ...manualSearchCase.rest.map(
+              node => node._alias || node.description,
             ),
           ].join(' -> ')}`,
       )
@@ -608,14 +631,18 @@ function assertNoUnreachableTransforms(transformNodes: TransformNode[]): void {
 
   throw new Error(
     `Unreachable transforms:\n${transformNodes
-      .map(node => `  ${node._alias || `[by] ${node.rawDescription}`}`)
+      .map(node => `  ${node._alias || node.description}`)
       .join('\n')}`,
   );
 }
 
-function getCaseNameOnEnd(searchCases: SearchCase[]): string | undefined {
-  let searchCaseOnEnd = searchCases.find(searchCase => !searchCase.rest.length);
-  return searchCaseOnEnd && searchCaseOnEnd.name;
+function getCaseNameOnEnd(
+  manualSearchCases: ManualSearchCase[],
+): string | undefined {
+  let manualSearchCaseOnEnd = manualSearchCases.find(
+    manualSearchCase => !manualSearchCase.rest.length,
+  );
+  return manualSearchCaseOnEnd && manualSearchCaseOnEnd.name;
 }
 
 function buildTestCaseName(

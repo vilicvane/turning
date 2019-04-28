@@ -22,8 +22,8 @@ export interface NegativeStateMatchingPattern {
 export type StateMatchingPattern = string | NegativeStateMatchingPattern;
 
 export interface TransformNodeOptions {
-  match?: StateMatchingPattern[];
-  matches?: StateMatchingPattern[][];
+  match?: StateMatchingPattern | StateMatchingPattern[];
+  matches?: (StateMatchingPattern | StateMatchingPattern[])[];
 }
 
 abstract class TransformNode<TContext = unknown> implements PathNode {
@@ -31,7 +31,7 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
   _alias: string | undefined;
 
   /** @internal */
-  rawDescription!: string;
+  _description!: string;
 
   /** @internal */
   newStates!: string[];
@@ -47,6 +47,9 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
 
   /** @internal */
   _depth: number | undefined;
+
+  /** @internal */
+  _manual: boolean | undefined;
 
   /** @internal */
   blockedTransformAliases: string[] | undefined;
@@ -67,6 +70,10 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
     let matchOptionsList: TransformMatchOptions[] = [];
 
     for (let patterns of matchPatternsList) {
+      if (!Array.isArray(patterns)) {
+        patterns = [patterns];
+      }
+
       let matchingPatterns: string[] = [];
       let negativeMatchingPatterns: string[] = [];
 
@@ -200,10 +207,15 @@ export class TransformToChain<
     return this;
   }
 
+  manual(): this {
+    this.node._manual = true;
+    return this;
+  }
+
   by(description: string, handler: TTransformHandler): ResultNode<TContext> {
     let node = this.node;
 
-    node.rawDescription = description;
+    node._description = description;
     node.handler = handler;
 
     return new ResultNode(node);
