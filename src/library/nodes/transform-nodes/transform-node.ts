@@ -6,7 +6,7 @@ import match from 'micromatch';
 import {PathNode, TestHandler} from '../common';
 import {ResultNode} from '../result-node';
 
-interface TransformMatchOptions {
+export interface TransformMatchOptions {
   patterns: string[];
   negativePatterns: string[];
 }
@@ -21,9 +21,14 @@ export interface NegativeStateMatchingPattern {
 
 export type StateMatchingPattern = string | NegativeStateMatchingPattern;
 
+export type SingleMultipleStateMatchingPattern =
+  | StateMatchingPattern
+  | StateMatchingPattern[];
+
 export interface TransformNodeOptions {
-  match?: StateMatchingPattern | StateMatchingPattern[];
-  matches?: (StateMatchingPattern | StateMatchingPattern[])[];
+  pattern?: string | false;
+  match?: SingleMultipleStateMatchingPattern;
+  matches?: (SingleMultipleStateMatchingPattern)[];
 }
 
 abstract class TransformNode<TContext = unknown> implements PathNode {
@@ -54,44 +59,28 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
   /** @internal */
   blockedTransformAliases: string[] | undefined;
 
+  private patternName: string | false | undefined;
+
   private matchOptionsList: TransformMatchOptions[];
 
   constructor(
     /** @internal */
     readonly obsoleteStatePatterns: string[],
-    {match: matchPatterns, matches: matchPatternsList}: TransformNodeOptions,
+    {
+      pattern: patternName,
+      match: matchPatterns,
+      matches: matchPatternsList,
+    }: TransformNodeOptions,
   ) {
+    this.patternName = patternName;
+
     if (matchPatterns) {
       matchPatternsList = [matchPatterns];
     } else if (!matchPatternsList) {
       matchPatternsList = [];
     }
 
-    let matchOptionsList: TransformMatchOptions[] = [];
-
-    for (let patterns of matchPatternsList) {
-      if (!Array.isArray(patterns)) {
-        patterns = [patterns];
-      }
-
-      let matchingPatterns: string[] = [];
-      let negativeMatchingPatterns: string[] = [];
-
-      for (let pattern of patterns) {
-        if (typeof pattern === 'string') {
-          matchingPatterns.push(pattern);
-        } else {
-          negativeMatchingPatterns.push(pattern.not);
-        }
-      }
-
-      matchOptionsList.push({
-        patterns: matchingPatterns,
-        negativePatterns: negativeMatchingPatterns,
-      });
-    }
-
-    this.matchOptionsList = matchOptionsList;
+    this.matchOptionsList = matchPatternsList.map(buildTransformMatchOptions);
   }
 
   get relatedStatePatterns(): string[] {
@@ -107,7 +96,10 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
   abstract get description(): string;
 
   /** @internal */
-  transformStates(states: string[]): string[] | undefined {
+  transformStates(
+    states: string[],
+    matchOptionsMap: Map<string | undefined, TransformMatchOptions>,
+  ): string[] | undefined {
     states = [...states];
 
     let obsoleteStatePatterns = this.obsoleteStatePatterns;
@@ -117,6 +109,12 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
     assert(obsoleteStatePatterns);
     assert(newStates);
 
+    let presetPatternName = this.patternName;
+    let presetMatchOptions =
+      presetPatternName === false
+        ? undefined
+        : matchOptionsMap.get(presetPatternName);
+
     for (let pattern of obsoleteStatePatterns) {
       // For every obsolete state pattern, it has at least one corespondent
       // state
@@ -125,23 +123,17 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
       }
     }
 
+    if (presetMatchOptions && !testMatchOptions(states, presetMatchOptions)) {
+      return undefined;
+    }
+
     let matchOptionsList = this.matchOptionsList;
 
     let matched =
       !matchOptionsList.length ||
-      matchOptionsList.some(({patterns, negativePatterns}) => {
-        for (let pattern of patterns) {
-          if (match(states, pattern).length === 0) {
-            return false;
-          }
-        }
-
-        if (match.some(states, negativePatterns)) {
-          return false;
-        }
-
-        return true;
-      });
+      matchOptionsList.some(matchOptions =>
+        testMatchOptions(states, matchOptions),
+      );
 
     if (!matched) {
       return undefined;
@@ -220,4 +212,45 @@ export class TransformToChain<
 
     return new ResultNode(node);
   }
+}
+
+export function buildTransformMatchOptions(
+  patterns: SingleMultipleStateMatchingPattern,
+): TransformMatchOptions {
+  if (!Array.isArray(patterns)) {
+    patterns = [patterns];
+  }
+
+  let matchingPatterns: string[] = [];
+  let negativeMatchingPatterns: string[] = [];
+
+  for (let pattern of patterns) {
+    if (typeof pattern === 'string') {
+      matchingPatterns.push(pattern);
+    } else {
+      negativeMatchingPatterns.push(pattern.not);
+    }
+  }
+
+  return {
+    patterns: matchingPatterns,
+    negativePatterns: negativeMatchingPatterns,
+  };
+}
+
+function testMatchOptions(
+  states: string[],
+  {patterns, negativePatterns}: TransformMatchOptions,
+): boolean {
+  for (let pattern of patterns) {
+    if (match(states, pattern).length === 0) {
+      return false;
+    }
+  }
+
+  if (match.some(states, negativePatterns)) {
+    return false;
+  }
+
+  return true;
 }

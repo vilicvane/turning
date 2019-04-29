@@ -5,10 +5,13 @@ import {
   DefineNode,
   InitializeNode,
   PathNode,
+  SingleMultipleStateMatchingPattern,
   SpawnNode,
+  TransformMatchOptions,
   TransformNode,
   TransformNodeOptions,
   TurnNode,
+  buildTransformMatchOptions,
 } from './nodes';
 
 const DEFAULT_MAX_DEPTH = 10;
@@ -77,6 +80,11 @@ export interface TurningTestOptions extends TurningSearchOptions {
 export class Turning<TContext> {
   private defineNodeMap = new Map<string, DefineNode<TContext>>();
 
+  private transformMatchOptionsMap = new Map<
+    string | undefined,
+    TransformMatchOptions
+  >();
+
   private initializeNodes: InitializeNode<TContext>[] = [];
   private transformNodes: TransformNode<TContext>[] = [];
 
@@ -88,6 +96,23 @@ export class Turning<TContext> {
     let node = new DefineNode<TContext>(state);
     this.defineNodeMap.set(state, node);
     return node;
+  }
+
+  pattern(patterns: SingleMultipleStateMatchingPattern): void;
+  pattern(name: string, patterns: SingleMultipleStateMatchingPattern): void;
+  pattern(
+    name: string | undefined | SingleMultipleStateMatchingPattern,
+    patterns?: SingleMultipleStateMatchingPattern,
+  ): void {
+    if (!patterns) {
+      patterns = name as SingleMultipleStateMatchingPattern;
+      name = undefined;
+    }
+
+    this.transformMatchOptionsMap.set(
+      name as string | undefined,
+      buildTransformMatchOptions(patterns),
+    );
   }
 
   initialize(states: string[]): InitializeNode<TContext> {
@@ -321,6 +346,15 @@ export class Turning<TContext> {
       }
     }
 
+    for (let {
+      patterns,
+      negativePatterns,
+    } of this.transformMatchOptionsMap.values()) {
+      for (let pattern of [...patterns, ...negativePatterns]) {
+        statePatternSet.add(pattern);
+      }
+    }
+
     let definedStates = Array.from(this.defineNodeMap.keys());
     let definedStateSet = new Set(definedStates);
 
@@ -405,6 +439,8 @@ export class Turning<TContext> {
 
     let hasTransformation = false;
 
+    let transformMatchOptionsMap = this.transformMatchOptionsMap;
+
     for (let transformNode of this.transformNodes) {
       let alias = transformNode._alias;
 
@@ -412,7 +448,10 @@ export class Turning<TContext> {
         continue;
       }
 
-      let transformedStates = transformNode.transformStates(states);
+      let transformedStates = transformNode.transformStates(
+        states,
+        transformMatchOptionsMap,
+      );
 
       if (!transformedStates) {
         continue;
