@@ -3,7 +3,8 @@ import assert from 'assert';
 import _ from 'lodash';
 import match from 'micromatch';
 
-import {PathNode, TestHandler} from '../common';
+import {generateNodeId} from '../@utils';
+import {IPathNode, TestHandler} from '../common';
 import {ResultNode} from '../result-node';
 
 export interface TransformMatchOptions {
@@ -31,7 +32,10 @@ export interface TransformNodeOptions {
   matches?: (SingleMultipleStateMatchingPattern)[];
 }
 
-abstract class TransformNode<TContext = unknown> implements PathNode {
+abstract class TransformNode<TContext = unknown> implements IPathNode {
+  /** @internal */
+  readonly id = generateNodeId();
+
   /** @internal */
   _alias: string | undefined;
 
@@ -96,12 +100,10 @@ abstract class TransformNode<TContext = unknown> implements PathNode {
   abstract get description(): string;
 
   /** @internal */
-  transformStates(
+  transitStates(
     states: string[],
     matchOptionsMap: Map<string | undefined, TransformMatchOptions>,
   ): string[] | undefined {
-    states = [...states];
-
     let obsoleteStatePatterns = this.obsoleteStatePatterns;
 
     let newStates = this.newStates;

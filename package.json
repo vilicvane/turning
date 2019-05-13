@@ -21,8 +21,11 @@
     "bld/library"
   ],
   "dependencies": {
+    "@tyriar/fibonacci-heap": "^2.0.9",
     "lodash": "^4.17.11",
     "micromatch": "^4.0.2",
+    "node-dijkstra": "^2.5.0",
+    "prando": "^5.1.0",
     "tslang": "^0.1.13"
   },
   "devDependencies": {

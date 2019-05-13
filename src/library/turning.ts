@@ -1,15 +1,18 @@
 import _ from 'lodash';
 import match from 'micromatch';
+import {Dict} from 'tslang';
 
+import {searchCases} from './@search';
 import {
   DefineNode,
+  IPathNode,
   InitializeNode,
   PathNode,
   SingleMultipleStateMatchingPattern,
   SpawnNode,
   TransformMatchOptions,
-  TransformNode,
   TransformNodeOptions,
+  TransitionNode,
   TurnNode,
   buildTransformMatchOptions,
 } from './nodes';
@@ -44,7 +47,7 @@ type PathVia = PathInitialize | PathSpawn | PathTurn;
 
 interface SearchPathContext {
   remainingDepth: number;
-  repeatCountMap: Map<TransformNode, number>;
+  repeatCountMap: Map<TransitionNode, number>;
   parentPathStart: PathStart;
   manualSearchCases: ManualSearchCase[];
   manual: boolean;
@@ -53,13 +56,17 @@ interface SearchPathContext {
 
 interface ManualSearchCase {
   name: string;
-  rest: PathNode[];
+  rest: IPathNode[];
 }
 
 interface SearchNextOptions {
   maxDepth: number;
   maxRepeat: number;
 }
+
+// interface SearchStatesCombinationsResult {
+//   rawGraph: Map<string, Map<string, number>>;
+// }
 
 export interface ITurningTestAdapter {
   describe(name: string, callback: () => void): void;
@@ -80,13 +87,13 @@ export interface TurningTestOptions extends TurningSearchOptions {
 export class Turning<TContext> {
   private defineNodeMap = new Map<string, DefineNode<TContext>>();
 
-  private transformMatchOptionsMap = new Map<
+  private transitionMatchOptionsMap = new Map<
     string | undefined,
     TransformMatchOptions
   >();
 
   private initializeNodes: InitializeNode<TContext>[] = [];
-  private transformNodes: TransformNode<TContext>[] = [];
+  private transitionNodes: TransitionNode<TContext>[] = [];
 
   private nameToCasePathNodeAliasesMap = new Map<string, string[]>();
 
@@ -109,7 +116,7 @@ export class Turning<TContext> {
       name = undefined;
     }
 
-    this.transformMatchOptionsMap.set(
+    this.transitionMatchOptionsMap.set(
       name as string | undefined,
       buildTransformMatchOptions(patterns),
     );
@@ -126,7 +133,7 @@ export class Turning<TContext> {
     options: TransformNodeOptions = {},
   ): TurnNode<TContext> {
     let node = new TurnNode<TContext>(states, options);
-    this.transformNodes.push(node);
+    this.transitionNodes.push(node);
     return node;
   }
 
@@ -135,7 +142,7 @@ export class Turning<TContext> {
     options: TransformNodeOptions = {},
   ): SpawnNode<TContext> {
     let node = new SpawnNode<TContext>(states, options);
-    this.transformNodes.push(node);
+    this.transitionNodes.push(node);
     return node;
   }
 
@@ -314,7 +321,7 @@ export class Turning<TContext> {
       assertNoUnreachableStates(neverReachedStateSet);
     }
 
-    let unreachableTransformNodes = this.transformNodes.filter(
+    let unreachableTransformNodes = this.transitionNodes.filter(
       node => !node.reached,
     );
 
@@ -333,7 +340,7 @@ export class Turning<TContext> {
       }
     }
 
-    for (let transformNode of this.transformNodes) {
+    for (let transformNode of this.transitionNodes) {
       for (let state of transformNode.newStates) {
         stateSet.add(state);
       }
@@ -349,7 +356,7 @@ export class Turning<TContext> {
     for (let {
       patterns,
       negativePatterns,
-    } of this.transformMatchOptionsMap.values()) {
+    } of this.transitionMatchOptionsMap.values()) {
       for (let pattern of [...patterns, ...negativePatterns]) {
         statePatternSet.add(pattern);
       }
@@ -374,16 +381,16 @@ export class Turning<TContext> {
   }
 
   private buildManualSearchCases(): ManualSearchCase[] {
-    let aliasToPathNodeMap = new Map<string, PathNode>();
+    let aliasToPathNodeMap = new Map<string, IPathNode>();
 
-    for (let pathNode of [...this.initializeNodes, ...this.transformNodes]) {
+    for (let pathNode of [...this.initializeNodes, ...this.transitionNodes]) {
       if (pathNode._alias) {
         aliasToPathNodeMap.set(pathNode._alias, pathNode);
       }
     }
 
     let blockedAliases = _.flatMap(
-      [...this.initializeNodes, ...this.transformNodes],
+      [...this.initializeNodes, ...this.transitionNodes],
       node => node.blockedTransformAliases || [],
     );
 
@@ -398,7 +405,7 @@ export class Turning<TContext> {
     let manualSearchCases: ManualSearchCase[] = [];
 
     for (let [name, aliases] of this.nameToCasePathNodeAliasesMap) {
-      let pathNodes: PathNode[] = [];
+      let pathNodes: IPathNode[] = [];
 
       for (let alias of aliases) {
         let pathNode = aliasToPathNodeMap.get(alias);
@@ -439,16 +446,16 @@ export class Turning<TContext> {
 
     let hasTransformation = false;
 
-    let transformMatchOptionsMap = this.transformMatchOptionsMap;
+    let transformMatchOptionsMap = this.transitionMatchOptionsMap;
 
-    for (let transformNode of this.transformNodes) {
+    for (let transformNode of this.transitionNodes) {
       let alias = transformNode._alias;
 
       if (alias && blockedTransformAliasSet.has(alias)) {
         continue;
       }
 
-      let transformedStates = transformNode.transformStates(
+      let transformedStates = transformNode.transitStates(
         states,
         transformMatchOptionsMap,
       );
@@ -540,6 +547,16 @@ export class Turning<TContext> {
     }
   }
 
+  private sss(): void {
+    searchCases({
+      initializeNodes: this.initializeNodes,
+      transitionNodes: this.transitionNodes,
+      transitionMatchOptionsMap: this.transitionMatchOptionsMap,
+      minTransitionSearchCount: 10,
+      randomSeed: new Date().toLocaleDateString(),
+    });
+  }
+
   private async testStates(context: unknown, states: string[]): Promise<void> {
     let defineNodeMap = this.defineNodeMap;
 
@@ -608,7 +625,7 @@ function getRelatedTestCaseIds(testCaseId: string): string[] {
 
 function removeAndGetMatchingRestManualSearchCases(
   manualSearchCases: ManualSearchCase[],
-  node: PathNode,
+  node: IPathNode,
 ): ManualSearchCase[] {
   _.remove(
     manualSearchCases,
@@ -663,7 +680,7 @@ function assertNoUnreachableStates(neverReachedStateSet: Set<string>): void {
   );
 }
 
-function assertNoUnreachableTransforms(transformNodes: TransformNode[]): void {
+function assertNoUnreachableTransforms(transformNodes: TransitionNode[]): void {
   if (!transformNodes.length) {
     return;
   }

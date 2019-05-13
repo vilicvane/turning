@@ -2,7 +2,10 @@ export type TestHandler<TContext = unknown> = (
   context: TContext,
 ) => Promise<void> | void;
 
-export interface PathNode {
+export interface IPathNode {
+  /** @internal */
+  id: number;
+
   /** @internal */
   _alias: string | undefined;
 

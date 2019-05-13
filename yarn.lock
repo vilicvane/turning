@@ -416,6 +416,11 @@
   resolved "https://registry.yarnpkg.com/@types/yargs/-/yargs-12.0.12.tgz#45dd1d0638e8c8f153e87d296907659296873916"
   integrity sha512-SOhuU4wNBxhhTHxYaiG5NY4HBhDIDnJF60GU+2LqHAdKKer86//e4yg69aENCtQ04n0ovz+tq2YPME5t5yp4pw==
 
+"@tyriar/fibonacci-heap@^2.0.9":
+  version "2.0.9"
+  resolved "https://registry.yarnpkg.com/@tyriar/fibonacci-heap/-/fibonacci-heap-2.0.9.tgz#df3dcbdb1b9182168601f6318366157ee16666e9"
+  integrity sha512-bYuSNomfn4hu2tPiDN+JZtnzCpSpbJ/PNeulmocDy3xN2X5OkJL65zo6rPZp65cPPhLF9vfT/dgE+RtFRCSxOA==
+
 abab@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/abab/-/abab-2.0.0.tgz#aba0ab4c5eee2d4c79d3487d85450fb2376ebb0f"
@@ -2691,6 +2696,11 @@ nice-try@^1.0.4:
   resolved "https://registry.yarnpkg.com/nice-try/-/nice-try-1.0.5.tgz#a3378a7696ce7d223e88fc9b764bd7ef1089e366"
   integrity sha512-1nh45deeb5olNY7eX82BkPO7SSxR5SSYJiPTrTdFUVYwAl8CKMA5N9PjTYkHiRjisVcxcQ1HXdLhx2qxxJzLNQ==
 
+node-dijkstra@^2.5.0:
+  version "2.5.0"
+  resolved "https://registry.yarnpkg.com/node-dijkstra/-/node-dijkstra-2.5.0.tgz#0feb76c5a05f35b56e786de6df4d3364af28d4e8"
+  integrity sha1-D+t2xaBfNbVueG3m300zZK8o1Og=
+
 node-int64@^0.4.0:
   version "0.4.0"
   resolved "https://registry.yarnpkg.com/node-int64/-/node-int64-0.4.0.tgz#87a9065cdb355d3182d8f94ce11188b825c68a3b"
@@ -3037,6 +3047,11 @@ posix-character-classes@^0.1.0:
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/posix-character-classes/-/posix-character-classes-0.1.1.tgz#01eac0fe3b5af71a2a6c02feabb8c1fef7e00eab"
   integrity sha1-AerA/jta9xoqbAL+q7jB/vfgDqs=
+
+prando@^5.1.0:
+  version "5.1.0"
+  resolved "https://registry.yarnpkg.com/prando/-/prando-5.1.0.tgz#f0aab737ba0c356e2f2f9e3088b9118e42b05f51"
+  integrity sha512-UkXcaSqEoMz2S5O/uhb9emINjP1qM9vClszDSPCIVhI7s696tVCNS5qbm5b7qSwMlpLS3rih4NHFZdPzwHTtSQ==
 
 prelude-ls@~1.1.2:
   version "1.1.2"

@@ -1,7 +1,7 @@
 import {SpawnNode} from './spawn-node';
 import {TurnNode} from './turn-node';
 
-export type TransformNode<TContext = unknown> =
+export type TransitionNode<TContext = unknown> =
   | TurnNode<TContext>
   | SpawnNode<TContext>;
 

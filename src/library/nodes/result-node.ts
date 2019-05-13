@@ -1,7 +1,7 @@
-import {PathNode, TestHandler} from './common';
+import {IPathNode, TestHandler} from './common';
 
 export class ResultNode<TContext = unknown> {
-  constructor(public node: PathNode) {}
+  constructor(public node: IPathNode) {}
 
   test(handler: TestHandler<TContext>): this {
     this.node.testHandler = handler;
