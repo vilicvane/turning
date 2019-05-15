@@ -18,3 +18,5 @@ bld/
 # Testing files
 
 coverage/
+
+/test.*
