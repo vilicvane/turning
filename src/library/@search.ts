@@ -463,25 +463,29 @@ export function searchTestCases({
         destination,
         map: pathNodeToCountMap,
       } of pathNodeCountMapDataList) {
-        pathNodeToCountMap.set(pathNode, count + 1);
+        let key = buildSourceAndDestinationKey(source, destination);
 
-        let [newPathNode, newCount] = getMinPathNodeCountEntry(
-          pathNodeToCountMap,
-        );
+        if (sourceAndDestinationToMinCountDataMap.has(key)) {
+          pathNodeToCountMap.set(pathNode, count + 1);
 
-        sourceAndDestinationToMinCountDataMap.set(key, {
-          pathNode: newPathNode,
-          count: newCount,
-        });
+          let [newPathNode, newCount] = getMinPathNodeCountEntry(
+            pathNodeToCountMap,
+          );
 
-        let partialGraphData = graphData.get(source)!;
+          sourceAndDestinationToMinCountDataMap.set(key, {
+            pathNode: newPathNode,
+            count: newCount,
+          });
 
-        let currentDistance = partialGraphData.get(destination)!;
+          let partialGraphData = graphData.get(source)!;
 
-        partialGraphData.set(
-          destination,
-          currentDistance + getDistanceIncrementByCount(newCount),
-        );
+          let currentDistance = partialGraphData.get(destination)!;
+
+          partialGraphData.set(
+            destination,
+            currentDistance + getDistanceIncrementByCount(newCount),
+          );
+        }
       }
     }
 

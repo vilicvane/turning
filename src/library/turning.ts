@@ -157,7 +157,7 @@ export class Turning<TContext> {
             }
 
             try {
-              let {node: startNode, states: startStatesCombination} = pathStart;
+              let {node: startNode, states: startStates} = pathStart;
 
               if (startNode instanceof InitializeNode) {
                 context = await startNode.initialize();
@@ -177,7 +177,7 @@ export class Turning<TContext> {
                 }
               }
 
-              await this.testStates(context, startStatesCombination);
+              await this.testStates(context, startStates);
 
               await startNode.test(context);
             } catch (error) {
