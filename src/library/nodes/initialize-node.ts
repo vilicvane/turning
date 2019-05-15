@@ -28,9 +28,6 @@ export class InitializeNode<TContext = unknown> implements IPathNode {
   /** @internal */
   _manual: boolean | undefined;
 
-  /** @internal */
-  blockedTransformAliases: string[] | undefined;
-
   constructor(
     /** @internal */
     readonly states: string[],
@@ -49,11 +46,6 @@ export class InitializeNode<TContext = unknown> implements IPathNode {
 
   alias(alias: string): this {
     this._alias = alias;
-    return this;
-  }
-
-  block(aliases: string[]): this {
-    this.blockedTransformAliases = aliases;
     return this;
   }
 

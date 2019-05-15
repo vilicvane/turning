@@ -6,32 +6,91 @@ import {pairwise} from './@utils';
 import {
   InitializeNode,
   PathNode,
+  SpawnNode,
   TransformMatchOptions,
   TransitionNode,
+  TurnNode,
 } from './nodes';
 
-const SOURCE_DESTINATION_KEY = (source: string, destination: string): string =>
-  `${source}~${destination}`;
+export interface IPathVia {
+  caseNameOnEnd: string | undefined;
+  states: string[];
+  turn?: PathTurn;
+  spawns?: PathSpawn[];
+}
 
-const RESOLVE_SOURCE_DESTINATION_KEY = (key: string): [string, string] =>
-  key.split('~') as [string, string];
+export interface PathInitialize extends IPathVia {
+  node: InitializeNode;
+}
 
-export interface SearchCasesOptions {
+export interface PathSpawn extends IPathVia {
+  node: SpawnNode;
+}
+
+export interface PathTurn extends IPathVia {
+  node: TurnNode;
+}
+
+export type PathStart = PathInitialize | PathSpawn;
+
+export type PathVia = PathInitialize | PathSpawn | PathTurn;
+
+interface TestCaseManualInfo {
+  name: string;
+  length: number;
+}
+
+interface TestCase {
+  manual: TestCaseManualInfo | undefined;
+  path: PathNode[];
+}
+
+export interface ManualTestCase {
+  name: string;
+  path: PathNode[];
+}
+
+export interface SearchTestCasesOptions {
   initializeNodes: InitializeNode[];
   transitionNodes: TransitionNode[];
+  manualTestCases: ManualTestCase[];
   transitionMatchOptionsMap: Map<string | undefined, TransformMatchOptions>;
+  // definedStateSet
   minTransitionSearchCount: number;
   randomSeed: string | number | undefined;
 }
 
-export function searchCases({
+export interface SearchTestCasesResult {
+  pathInitializes: PathInitialize[];
+  reachedStateSet: Set<string>;
+}
+
+export function searchTestCases({
   initializeNodes,
   transitionNodes,
   transitionMatchOptionsMap,
+  manualTestCases,
   minTransitionSearchCount,
   randomSeed,
-}: SearchCasesOptions): void {
-  let prando = new Prando(randomSeed);
+}: SearchTestCasesOptions): SearchTestCasesResult {
+  let reachedStateSet = new Set<string>();
+
+  let rawSourceToTransitionNodeToRawDestinationMapMap = new Map<
+    string,
+    Map<TransitionNode, string>
+  >();
+
+  /**
+   * Manual transition nodes are not included.
+   */
+  let rawSourceToRawDestinationToTransitionNodesMapMap = new Map<
+    string,
+    Map<string, TransitionNode[]>
+  >();
+
+  searchTransitions();
+
+  validateManualTestCases();
 
   let pathNodeToIndexMap = new Map<PathNode | undefined, number>([
     [undefined, 0],
@@ -44,6 +103,8 @@ export function searchCases({
     pathNodeToIndexMap.set(pathNode, index);
     indexToPathNodeMap.set(index, pathNode);
   }
+
+  let prando = new Prando(randomSeed);
 
   /**
    * ```json
@@ -101,6 +162,10 @@ export function searchCases({
   );
 
   for (let initializeNode of initializeNodes) {
+    if (initializeNode._manual) {
+      continue;
+    }
+
     let rawDestination = buildStatesCombination(initializeNode.states);
 
     let headDestination = `${rawDestination}@head`;
@@ -121,11 +186,9 @@ export function searchCases({
     pathNodeToCountMap.set(initializeNode, 0);
   }
 
-  let rawSourceToRawDestinationToTransitionNodesMapMap = searchStatesCombinations();
-
   for (let [
     rawSource,
-    rawDestinationToPathNodesMap,
+    rawDestinationToTransitionNodesMap,
   ] of rawSourceToRawDestinationToTransitionNodesMapMap) {
     // >> [self:head-tail]
 
@@ -154,11 +217,18 @@ export function searchCases({
       specifiedTailSourceToHeadDestinationToPathNodeToCountMapMap,
     );
 
-    for (let [rawDestination, pathNodes] of rawDestinationToPathNodesMap) {
+    for (let [
+      rawDestination,
+      transitionNodes,
+    ] of rawDestinationToTransitionNodesMap) {
+      let nonManualTransitionNodes = transitionNodes.filter(
+        transitionNode => !transitionNode._manual,
+      );
+
       if (rawSource === rawDestination) {
-        for (let pathNode of pathNodes) {
+        for (let transitionNode of nonManualTransitionNodes) {
           // [transition:head-tail]
-          sameHeadTailPathNodeToCountMap.set(pathNode, 0);
+          sameHeadTailPathNodeToCountMap.set(transitionNode, 0);
         }
 
         // [self:tail-head]
@@ -167,16 +237,21 @@ export function searchCases({
           new Map([[undefined, 0]]),
         );
       } else {
-        // [transition:tail-head]
-        specifiedTailSourceToHeadDestinationToPathNodeToCountMapMap.set(
-          `${rawDestination}@head`,
-          new Map(pathNodes.map(pathNode => [pathNode, 0])),
-        );
+        if (nonManualTransitionNodes.length) {
+          // [transition:tail-head]
+          specifiedTailSourceToHeadDestinationToPathNodeToCountMapMap.set(
+            `${rawDestination}@head`,
+            new Map(
+              nonManualTransitionNodes.map(transitionNode => [
+                transitionNode,
+                0,
+              ]),
+            ),
+          );
+        }
       }
     }
   }
-
-  // console.log(sourceToDestinationToPathNodeToCountMapMapMap);
 
   let graphData = new Map<string, Map<string, number>>();
 
@@ -238,7 +313,7 @@ export function searchCases({
       if (pathNode || pathNodeToCountMap.size > 1) {
         // Avoid [self:head-tail]-only and [tail-end] situation
         sourceAndDestinationToMinCountDataMap.set(
-          SOURCE_DESTINATION_KEY(source, destination),
+          buildSourceAndDestinationKey(source, destination),
           {
             pathNode,
             count,
@@ -250,11 +325,19 @@ export function searchCases({
     }
   }
 
-  let caseIndexArrays: number[][] = [];
+  let testCases = manualTestCases.map(
+    ({name, path}): TestCase => {
+      return {
+        manual: {
+          name,
+          length: path.length,
+        },
+        path,
+      };
+    },
+  );
 
-  let i = 0;
-
-  while (true || i++ < 10) {
+  while (true) {
     let [minCountSourceAndDestination, {count: minCount}] = _.sortBy(
       Array.from(sourceAndDestinationToMinCountDataMap),
       ([, data]) => data.count,
@@ -264,77 +347,91 @@ export function searchCases({
       break;
     }
 
-    let [minCountSource, minCountDestination] = RESOLVE_SOURCE_DESTINATION_KEY(
+    let [minCountSource, minCountDestination] = resolveSourceAndDestinationKey(
       minCountSourceAndDestination,
     );
 
-    // console.log('MIN COUNT');
-    // console.log(pathNode && pathNode.description);
-    // console.log(minCountSource);
-    // console.log(minCountDestination);
-
     let startingPath =
       minCountSource !== 'start'
-        ? new Graph(graphData).path('start', minCountSource)!
+        ? new Graph(graphData).path('start', minCountSource)
         : ['start'];
-
-    let startingIndexes = lengthenPathInGraphData([
-      ...startingPath,
-      minCountDestination,
-    ]);
 
     let endingPath =
       minCountDestination !== 'end'
-        ? new Graph(graphData).path(minCountDestination, 'end')!
+        ? new Graph(graphData).path(minCountDestination, 'end')
         : ['end'];
 
-    let endingIndexes = lengthenPathInGraphData(endingPath);
+    if (!startingPath || !endingPath) {
+      blockTransition(minCountSource, minCountDestination);
+      continue;
+    }
 
-    caseIndexArrays.push([...startingIndexes, ...endingIndexes]);
+    let pathNodes = increaseTransitionCount([...startingPath, ...endingPath]);
 
-    // console.log('states', [...startingPath, ...endingPath]);
-    // console.log('path', [...startingIndexes, ...endingIndexes]);
+    testCases.push({
+      manual: undefined,
+      path: pathNodes,
+    });
   }
 
-  caseIndexArrays.sort(compareIndexArrays).reverse();
+  testCases.sort(compareTestCases).reverse();
 
-  let lastDedupedCaseIndexes = caseIndexArrays.shift()!;
+  let lastDedupedTestCase = testCases.shift()!;
 
-  let dedupedCaseIndexArrays = [lastDedupedCaseIndexes];
+  let dedupedTestCases = [lastDedupedTestCase];
 
-  for (let caseIndexes of caseIndexArrays) {
+  for (let testCase of testCases) {
+    let {path: pathNodes} = testCase;
+    let {path: lastDedupedPathNodes} = lastDedupedTestCase;
+
     if (
-      caseIndexes.length <= lastDedupedCaseIndexes.length &&
-      _.isEqual(
-        caseIndexes,
-        lastDedupedCaseIndexes.slice(0, caseIndexes.length),
-      )
+      pathNodes.length <= lastDedupedPathNodes.length &&
+      _.isEqual(pathNodes, lastDedupedPathNodes.slice(0, pathNodes.length))
     ) {
       continue;
     }
 
-    lastDedupedCaseIndexes = caseIndexes;
-    dedupedCaseIndexArrays.unshift(caseIndexes);
+    lastDedupedTestCase = testCase;
+    dedupedTestCases.unshift(testCase);
   }
 
-  // console.log(
-  //   dedupedCaseIndexArrays.map(indexes => {
-  //     return indexes.map(index => indexToPathNodeMap.get(index)!.description);
-  //   }),
-  // );
+  let pathInitializes = buildTestCasePaths(
+    dedupedTestCases,
+    rawSourceToTransitionNodeToRawDestinationMapMap,
+  );
 
-  console.log(dedupedCaseIndexArrays);
-  console.log(dedupedCaseIndexArrays.length);
+  return {
+    pathInitializes,
+    reachedStateSet,
+  };
 
-  function lengthenPathInGraphData(path: string[]): number[] {
-    let nodeIndexes: number[] = [];
+  function blockTransition(source: string, destination: string): void {
+    let key = buildSourceAndDestinationKey(source, destination);
+
+    sourceAndDestinationToMinCountDataMap.delete(key);
+
+    let pathNodeToCountMap = sourceToDestinationToPathNodeToCountMapMapMap
+      .get(source)!
+      .get(destination)!;
+
+    for (let pathNode of pathNodeToCountMap.keys()) {
+      pathNodeToCountMap.set(pathNode, Infinity);
+    }
+
+    let partialGraphData = graphData.get(source)!;
+
+    partialGraphData.delete(destination);
+
+    if (!partialGraphData.size) {
+      graphData.delete(source);
+    }
+  }
+
+  function increaseTransitionCount(path: string[]): PathNode[] {
+    let pathNodes: PathNode[] = [];
 
     for (let [source, destination] of pairwise(path)) {
-      let key = SOURCE_DESTINATION_KEY(source, destination);
-
-      // let pathNodeToCountMap = sourceToDestinationToPathNodeToCountMapMapMap
-      //   .get(source)!
-      //   .get(destination)!;
+      let key = buildSourceAndDestinationKey(source, destination);
 
       let minCountData = sourceAndDestinationToMinCountDataMap.get(key);
 
@@ -346,7 +443,7 @@ export function searchCases({
       let {pathNode, count} = minCountData;
 
       if (pathNode) {
-        nodeIndexes.push(pathNodeToIndexMap.get(pathNode)!);
+        pathNodes.push(pathNode);
       }
 
       let pathNodeCountMapDataList = pathNode
@@ -388,7 +485,7 @@ export function searchCases({
       }
     }
 
-    return nodeIndexes;
+    return pathNodes;
   }
 
   function getDistanceIncrementByCount(count: number): number {
@@ -402,28 +499,57 @@ export function searchCases({
     return Array.from(pathNodeToCountMap).sort(([, x], [, y]) => x - y)[0];
   }
 
-  function searchStatesCombinations(): Map<
-    string,
-    Map<string, TransitionNode[]>
-  > {
-    let sourceToDestinationToTransitionNodesMapMap = new Map<
-      string,
-      Map<string, TransitionNode[]>
-    >();
-
+  function searchTransitions(): void {
     for (let initializeNode of initializeNodes) {
       let states = initializeNode.states;
 
       searchNextStatesCombinations(states, buildStatesCombination(states));
     }
 
-    return sourceToDestinationToTransitionNodesMapMap;
+    for (let [
+      rawSource,
+      transitionNodeToRawDestinationMap,
+    ] of rawSourceToTransitionNodeToRawDestinationMapMap) {
+      let rawDestinationToTransitionNodesMap = new Map<
+        string,
+        TransitionNode[]
+      >();
+
+      rawSourceToRawDestinationToTransitionNodesMapMap.set(
+        rawSource,
+        rawDestinationToTransitionNodesMap,
+      );
+
+      for (let [
+        transitionNode,
+        rawDestination,
+      ] of transitionNodeToRawDestinationMap) {
+        let transitionNodes = rawDestinationToTransitionNodesMap.get(
+          rawDestination,
+        );
+
+        if (!transitionNodes) {
+          transitionNodes = [];
+
+          rawDestinationToTransitionNodesMap.set(
+            rawDestination,
+            transitionNodes,
+          );
+        }
+
+        transitionNodes.push(transitionNode);
+      }
+    }
 
     function searchNextStatesCombinations(
       sourceStates: string[],
-      source: string,
+      rawSource: string,
     ): void {
-      let transitionNodeAndDestinationStatesAndDestinationTuples = transitionNodes
+      for (let state of sourceStates) {
+        reachedStateSet.add(state);
+      }
+
+      let transitionNodeAndDestinationStatesAndRawDestinationTuples = transitionNodes
         .map(
           (transitionNode): [TransitionNode, string[], string] | undefined => {
             let destinationStates = transitionNode.transitStates(
@@ -431,42 +557,42 @@ export function searchCases({
               transitionMatchOptionsMap,
             );
 
-            return (
-              destinationStates && [
-                transitionNode,
-                destinationStates,
-                buildStatesCombination(destinationStates),
-              ]
-            );
+            if (!destinationStates) {
+              return undefined;
+            }
+
+            return [
+              transitionNode,
+              destinationStates,
+              buildStatesCombination(destinationStates),
+            ];
           },
         )
         .filter(
           (tuple): tuple is [TransitionNode, string[], string] => !!tuple,
         );
 
-      if (sourceToDestinationToTransitionNodesMapMap.has(source)) {
-        let destinationToTransitionNodesMap = sourceToDestinationToTransitionNodesMapMap.get(
-          source,
+      if (rawSourceToTransitionNodeToRawDestinationMapMap.has(rawSource)) {
+        let transitionNodeToRawDestinationMap = rawSourceToTransitionNodeToRawDestinationMapMap.get(
+          rawSource,
         )!;
 
         for (let [
           transitionNode,
           ,
-          destination,
-        ] of transitionNodeAndDestinationStatesAndDestinationTuples) {
-          destinationToTransitionNodesMap
-            .get(destination)!
-            .push(transitionNode);
+          rawDestination,
+        ] of transitionNodeAndDestinationStatesAndRawDestinationTuples) {
+          transitionNodeToRawDestinationMap.set(transitionNode, rawDestination);
         }
       } else {
-        sourceToDestinationToTransitionNodesMapMap.set(
-          source,
+        rawSourceToTransitionNodeToRawDestinationMapMap.set(
+          rawSource,
           new Map(
-            transitionNodeAndDestinationStatesAndDestinationTuples.map(
-              ([transitionNode, , destination]): [string, TransitionNode[]] => [
-                destination,
-                [transitionNode],
-              ],
+            transitionNodeAndDestinationStatesAndRawDestinationTuples.map(
+              ([transitionNode, , rawDestination]): [
+                TransitionNode,
+                string
+              ] => [transitionNode, rawDestination],
             ),
           ),
         );
@@ -475,28 +601,242 @@ export function searchCases({
           ,
           destinationStates,
           destination,
-        ] of transitionNodeAndDestinationStatesAndDestinationTuples) {
+        ] of transitionNodeAndDestinationStatesAndRawDestinationTuples) {
           searchNextStatesCombinations(destinationStates, destination);
         }
       }
     }
   }
+
+  function validateManualTestCases(): void {
+    let initializeNodeSet = new Set(initializeNodes);
+
+    for (let {
+      name,
+      path: [initializeNode, ...transitionNodes],
+    } of manualTestCases) {
+      if (!initializeNodeSet.has(initializeNode as InitializeNode)) {
+        throw new Error(
+          `Invalid manual case "${name}": "${initializeNode._alias ||
+            initializeNode.description}" is not a valid initialize node`,
+        );
+      }
+
+      let statesCombination: string | undefined = buildStatesCombination(
+        (initializeNode as InitializeNode).states,
+      );
+
+      for (let transitionNode of transitionNodes) {
+        let availableTransitionNodeToRawDestinationMap = rawSourceToTransitionNodeToRawDestinationMapMap.get(
+          statesCombination,
+        );
+
+        let nextStatesCombination =
+          availableTransitionNodeToRawDestinationMap &&
+          availableTransitionNodeToRawDestinationMap.get(
+            transitionNode as TransitionNode,
+          );
+
+        if (nextStatesCombination === undefined) {
+          throw new Error(
+            `Invalid manual case "${name}": "${transitionNode._alias ||
+              transitionNode.description}" is not available on states combination "${statesCombination}"`,
+          );
+        }
+
+        statesCombination = nextStatesCombination;
+      }
+    }
+  }
+
+  function compareTestCases(
+    {path: xPath}: TestCase,
+    {path: yPath}: TestCase,
+  ): number {
+    let minLength = Math.min(xPath.length, yPath.length);
+
+    for (let i = 0; i < minLength; i++) {
+      let result =
+        pathNodeToIndexMap.get(xPath[i])! - pathNodeToIndexMap.get(yPath[i])!;
+
+      if (result) {
+        return result;
+      }
+    }
+
+    return xPath.length === minLength ? -1 : 1;
+  }
+}
+
+function buildTestCasePaths(
+  testCases: TestCase[],
+  rawSourceToTransitionNodeToRawDestinationMapMap: Map<
+    string,
+    Map<TransitionNode, string>
+  >,
+): PathInitialize[] {
+  let pathInitializes: PathInitialize[] = [];
+
+  let initializeNodeToTestCasesMap = buildPathNodeToTestCasesMap<
+    InitializeNode
+  >(testCases, 0);
+
+  for (let [initializeNode, testCases] of initializeNodeToTestCasesMap) {
+    let states = initializeNode.states;
+
+    let pathInitialize: PathInitialize = {
+      caseNameOnEnd: getManualTestCaseNameOnEnd(testCases, 0),
+      node: initializeNode,
+      states,
+    };
+
+    buildNext(
+      buildStatesCombination(states),
+      pathInitializes,
+      pathInitialize,
+      testCases,
+      1,
+    );
+  }
+
+  return pathInitializes;
+
+  function buildNext(
+    statesCombination: string,
+    currentPathStarts: PathStart[],
+    parentPathStart: PathStart,
+    matchingTestCases: TestCase[],
+    index: number,
+  ): void {
+    let transitionNodeToTestCasesMap = buildPathNodeToTestCasesMap<
+      TransitionNode
+    >(matchingTestCases, index);
+
+    for (let [transitionNode, testCases] of transitionNodeToTestCasesMap) {
+      let nextStatesCombination = rawSourceToTransitionNodeToRawDestinationMapMap
+        .get(statesCombination)!
+        .get(transitionNode)!;
+
+      let nextStates = resolveStatesCombination(nextStatesCombination);
+
+      let nextPathStarts: PathStart[];
+      let pathStart: PathStart;
+
+      let caseNameOnEnd = getManualTestCaseNameOnEnd(testCases, index);
+
+      if (transitionNode instanceof TurnNode) {
+        nextPathStarts = currentPathStarts;
+
+        pathStart = clonePath(parentPathStart);
+
+        getPathEnd(pathStart).turn = {
+          caseNameOnEnd,
+          node: transitionNode,
+          states: nextStates,
+        };
+      } else {
+        if (!currentPathStarts.includes(parentPathStart)) {
+          currentPathStarts.push(parentPathStart);
+        }
+
+        let parentPathEnd = getPathEnd(parentPathStart);
+
+        nextPathStarts = parentPathEnd.spawns || (parentPathEnd.spawns = []);
+
+        pathStart = {
+          caseNameOnEnd,
+          node: transitionNode,
+          states: nextStates,
+        };
+      }
+
+      if (testCases.some(testCase => testCase.path.length > index + 1)) {
+        buildNext(
+          nextStatesCombination,
+          nextPathStarts,
+          pathStart,
+          testCases,
+          index + 1,
+        );
+      } else {
+        nextPathStarts.push(pathStart);
+      }
+    }
+  }
+
+  function buildPathNodeToTestCasesMap<TPathNode extends PathNode>(
+    testCases: TestCase[],
+    index: number,
+  ): Map<TPathNode, TestCase[]>;
+  function buildPathNodeToTestCasesMap(
+    testCases: TestCase[],
+    index: number,
+  ): Map<PathNode, TestCase[]> {
+    let pathNodeToTestCasesMap = new Map<PathNode, TestCase[]>();
+
+    for (let testCase of testCases) {
+      let pathNode = testCase.path[index];
+
+      let testCases = pathNodeToTestCasesMap.get(pathNode);
+
+      if (!testCases) {
+        testCases = [];
+        pathNodeToTestCasesMap.set(pathNode, testCases);
+      }
+
+      testCases.push(testCase);
+    }
+
+    return pathNodeToTestCasesMap;
+  }
+}
+
+function clonePath<T extends PathStart>(pathStart: T): T {
+  return _.cloneDeepWith(pathStart, value => {
+    if (Array.isArray(value) || _.isPlainObject(value)) {
+      return undefined;
+    } else {
+      return value;
+    }
+  });
+}
+
+function getPathEnd(pathStart: PathStart): PathVia {
+  let via: PathVia = pathStart;
+
+  while (via.turn) {
+    via = via.turn;
+  }
+
+  return via;
+}
+
+function getManualTestCaseNameOnEnd(
+  testCase: TestCase[],
+  index: number,
+): string | undefined {
+  let manualTestCaseOnEnd = testCase.find(({manual}) => {
+    return !!manual && manual.length === index + 1;
+  });
+
+  return manualTestCaseOnEnd && manualTestCaseOnEnd.manual!.name;
 }
 
 function buildStatesCombination(states: string[]): string {
   return [...states].sort().join(',');
 }
 
-function compareIndexArrays(xIndexes: number[], yIndexes: number[]): number {
-  let minLength = Math.min(xIndexes.length, yIndexes.length);
+export function resolveStatesCombination(statesCombination: string): string[] {
+  return statesCombination ? statesCombination.split(',') : [];
+}
 
-  for (let i = 0; i < minLength; i++) {
-    let result = xIndexes[i] - yIndexes[i];
+function buildSourceAndDestinationKey(
+  source: string,
+  destination: string,
+): string {
+  return `${source}~${destination}`;
+}
 
-    if (result) {
-      return result;
-    }
-  }
-
-  return xIndexes.length === minLength ? -1 : 1;
+function resolveSourceAndDestinationKey(key: string): [string, string] {
+  return key.split('~') as [string, string];
 }

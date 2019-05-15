@@ -60,9 +60,6 @@ abstract class TransformNode<TContext = unknown> implements IPathNode {
   /** @internal */
   _manual: boolean | undefined;
 
-  /** @internal */
-  blockedTransformAliases: string[] | undefined;
-
   private patternName: string | false | undefined;
 
   private matchOptionsList: TransformMatchOptions[];
@@ -151,7 +148,7 @@ abstract class TransformNode<TContext = unknown> implements IPathNode {
   }
 
   /** @internal */
-  async transform(context: TContext): Promise<TContext> {
+  async transit(context: TContext): Promise<TContext> {
     let handler = this.handler;
 
     let updatedContext = await handler(context);
@@ -188,11 +185,6 @@ export class TransformToChain<
 
   alias(alias: string): this {
     this.node._alias = alias;
-    return this;
-  }
-
-  block(aliases: string[]): this {
-    this.node.blockedTransformAliases = aliases;
     return this;
   }
 

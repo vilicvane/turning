@@ -20,7 +20,4 @@ export interface IPathNode {
 
   /** @internal */
   _depth: number | undefined;
-
-  /** @internal */
-  blockedTransformAliases: string[] | undefined;
 }
