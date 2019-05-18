@@ -2,11 +2,12 @@ import {generateNodeId} from './@utils';
 import {IPathNode, TestHandler} from './common';
 import {ResultNode} from './result-node';
 
-export type InitializeHandler<TContext = unknown> = () =>
-  | Promise<TContext>
-  | TContext;
+export type InitializeHandler<TContext, TEnvironment> = (
+  environment: TEnvironment,
+) => Promise<TContext> | TContext;
 
-export class InitializeNode<TContext = unknown> implements IPathNode {
+export class InitializeNode<TContext, TEnvironment>
+  implements IPathNode<TContext> {
   /** @internal */
   readonly id = generateNodeId();
 
@@ -17,7 +18,7 @@ export class InitializeNode<TContext = unknown> implements IPathNode {
   _description!: string;
 
   /** @internal */
-  handler!: InitializeHandler<TContext>;
+  handler!: InitializeHandler<TContext, TEnvironment>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
@@ -61,7 +62,7 @@ export class InitializeNode<TContext = unknown> implements IPathNode {
 
   by(
     description: string,
-    handler: InitializeHandler<TContext>,
+    handler: InitializeHandler<TContext, TEnvironment>,
   ): ResultNode<TContext> {
     this._description = description;
     this.handler = handler;
@@ -70,10 +71,10 @@ export class InitializeNode<TContext = unknown> implements IPathNode {
   }
 
   /** @internal */
-  async initialize(): Promise<TContext> {
+  async initialize(environment: TEnvironment): Promise<TContext> {
     let handler = this.handler;
 
-    return handler();
+    return handler(environment);
   }
 
   /** @internal */

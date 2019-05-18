@@ -1,8 +1,8 @@
 import {TestHandler} from './common';
 
-export class DefineNode<TContext = unknown> {
+export class DefineNode<TContext> {
   /** @internal */
-  testHandler: TestHandler | undefined;
+  testHandler: TestHandler<TContext> | undefined;
 
   constructor(public state: string) {}
 

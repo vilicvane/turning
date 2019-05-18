@@ -1,15 +1,15 @@
 import _ from 'lodash';
 import match from 'micromatch';
 
+import {ManualTestCase, SearchResult, search} from './@search';
 import {
-  ManualTestCase,
-  PathInitialize,
-  PathSpawn,
-  PathStart,
-  PathTurn,
-  PathVia,
-  searchTestCases,
-} from './@search';
+  TurningAfterCallback,
+  TurningAfterEachCallback,
+  TurningBeforeCallback,
+  TurningSetupCallback,
+  TurningTeardownCallback,
+  test,
+} from './@test';
 import {
   DefineNode,
   InitializeNode,
@@ -23,25 +23,28 @@ import {
   buildTransformMatchOptions,
 } from './nodes';
 
-const CONTEXT_SKIPPED: any = {};
-
-export interface ITurningTestAdapter {
-  describe(name: string, callback: () => void): void;
-  test(name: string, callback: () => Promise<void>): void;
-}
-
-export interface TurningSearchOptions {
+interface TurningSearchOptions {
   allowUnreachable?: boolean;
   minTransitionSearchCount?: number;
   randomSeed?: string | number;
 }
 
 export interface TurningTestOptions extends TurningSearchOptions {
-  only?: string[];
+  bail?: boolean;
+  filter?: string[];
   verbose?: boolean;
+  listOnly?: boolean;
 }
 
-export class Turning<TContext> {
+export class Turning<TContext, TEnvironment> {
+  private setupCallback: TurningSetupCallback<TEnvironment> | undefined;
+  private teardownCallback: TurningTeardownCallback<TEnvironment> | undefined;
+  private beforeCallback: TurningBeforeCallback<TEnvironment> | undefined;
+  private afterCallback: TurningAfterCallback<TEnvironment> | undefined;
+  private afterEachCallback:
+    | TurningAfterEachCallback<TContext, TEnvironment>
+    | undefined;
+
   private defineNodeMap = new Map<string, DefineNode<TContext>>();
 
   private transitionMatchOptionsMap = new Map<
@@ -49,12 +52,50 @@ export class Turning<TContext> {
     TransformMatchOptions
   >();
 
-  private initializeNodes: InitializeNode<TContext>[] = [];
-  private transitionNodes: TransitionNode<TContext>[] = [];
+  private initializeNodes: InitializeNode<TContext, TEnvironment>[] = [];
+  private transitionNodes: TransitionNode<TContext, TEnvironment>[] = [];
 
   private nameToCasePathNodeAliasesMap = new Map<string, string[]>();
 
-  constructor(private testAdapter: ITurningTestAdapter) {}
+  setup(callback: TurningSetupCallback<TEnvironment>): void {
+    if (this.setupCallback) {
+      throw new Error('Hook `setup` has already been set');
+    }
+
+    this.setupCallback = callback;
+  }
+
+  teardown(callback: TurningTeardownCallback<TEnvironment>): void {
+    if (this.teardownCallback) {
+      throw new Error('Hook `teardown` has already been set');
+    }
+
+    this.teardownCallback = callback;
+  }
+
+  before(callback: TurningBeforeCallback<TEnvironment>): void {
+    if (this.beforeCallback) {
+      throw new Error('Hook `before` has already been set');
+    }
+
+    this.beforeCallback = callback;
+  }
+
+  after(callback: TurningAfterCallback<TEnvironment>): void {
+    if (this.afterCallback) {
+      throw new Error('Hook `after` has already been set');
+    }
+
+    this.afterCallback = callback;
+  }
+
+  afterEach(callback: TurningAfterEachCallback<TContext, TEnvironment>): void {
+    if (this.afterEachCallback) {
+      throw new Error('Hook `afterEach` has already been set');
+    }
+
+    this.afterEachCallback = callback;
+  }
 
   define(state: string): DefineNode<TContext> {
     let node = new DefineNode<TContext>(state);
@@ -79,8 +120,8 @@ export class Turning<TContext> {
     );
   }
 
-  initialize(states: string[]): InitializeNode<TContext> {
-    let node = new InitializeNode<TContext>(states);
+  initialize(states: string[]): InitializeNode<TContext, TEnvironment> {
+    let node = new InitializeNode<TContext, TEnvironment>(states);
     this.initializeNodes.push(node);
     return node;
   }
@@ -88,8 +129,8 @@ export class Turning<TContext> {
   turn(
     states: string[],
     options: TransformNodeOptions = {},
-  ): TurnNode<TContext> {
-    let node = new TurnNode<TContext>(states, options);
+  ): TurnNode<TContext, TEnvironment> {
+    let node = new TurnNode<TContext, TEnvironment>(states, options);
     this.transitionNodes.push(node);
     return node;
   }
@@ -97,8 +138,8 @@ export class Turning<TContext> {
   spawn(
     states: string[],
     options: TransformNodeOptions = {},
-  ): SpawnNode<TContext> {
-    let node = new SpawnNode<TContext>(states, options);
+  ): SpawnNode<TContext, TEnvironment> {
+    let node = new SpawnNode<TContext, TEnvironment>(states, options);
     this.transitionNodes.push(node);
     return node;
   }
@@ -113,123 +154,45 @@ export class Turning<TContext> {
     nameToCasePathNodeAliasesMap.set(name, aliases);
   }
 
-  test(options?: TurningTestOptions): void;
-  test({
-    only: onlyTestCaseIds,
+  async test(options?: TurningTestOptions): Promise<boolean>;
+  async test({
+    bail = false,
+    filter,
     verbose = false,
+    listOnly = false,
     ...searchOptions
-  }: TurningTestOptions = {}): void {
-    let onlyTestCaseIdSet =
-      onlyTestCaseIds &&
-      new Set(_.flatMap(onlyTestCaseIds, getRelatedTestCaseIds));
+  }: TurningTestOptions = {}): Promise<boolean> {
+    let {pathInitializes, total, elapsedTime} = this.search(searchOptions);
 
-    let pathInitializes = this.search(searchOptions);
+    console.info('Total number of test cases:', total);
+    console.info('Elapsed time searching test cases:', `${elapsedTime}ms`);
 
-    let {describe, test} = this.testAdapter;
+    console.info();
 
-    let defineNextTests = (
-      pathStarts: PathStart[],
-      parentTestCaseId?: string,
-      contextGetter?: () => unknown,
-    ): void => {
-      for (let [index, pathStart] of pathStarts.entries()) {
-        let {
-          turns: pathTurns,
-          spawns: nextPathSpawns,
-        } = getPathTurnsAndNextSpawns(pathStart);
-
-        let testCaseId = `${
-          parentTestCaseId ? `${parentTestCaseId}.` : ''
-        }${index + 1}`;
-
-        if (onlyTestCaseIdSet && !onlyTestCaseIdSet.has(testCaseId)) {
-          continue;
-        }
-
-        let describeName = `Test Case ${testCaseId}`;
-
-        describe(describeName, () => {
-          let context: unknown;
-
-          test(buildTestCaseName(pathStart, verbose), async () => {
-            if (context === CONTEXT_SKIPPED) {
-              return;
-            }
-
-            try {
-              let {node: startNode, states: startStates} = pathStart;
-
-              if (startNode instanceof InitializeNode) {
-                context = await startNode.initialize();
-              } else {
-                let parentContext = contextGetter!();
-
-                context = await startNode.transit(parentContext);
-
-                if (
-                  typeof context === 'object' &&
-                  context &&
-                  context === parentContext
-                ) {
-                  throw new Error(
-                    'Spawned context is not expected to have the same reference as the parent context',
-                  );
-                }
-              }
-
-              await this.testStates(context, startStates);
-
-              await startNode.test(context);
-            } catch (error) {
-              context = CONTEXT_SKIPPED;
-
-              throw error;
-            }
-          });
-
-          for (let pathTurn of pathTurns) {
-            test(buildTestCaseName(pathTurn, verbose), async () => {
-              if (context === CONTEXT_SKIPPED) {
-                return;
-              }
-
-              try {
-                let {node: turnNode, states: turnStates} = pathTurn;
-
-                context = await turnNode.transit(context);
-
-                await this.testStates(context, turnStates);
-
-                await turnNode.test(context);
-              } catch (error) {
-                context = CONTEXT_SKIPPED;
-
-                throw error;
-              }
-            });
-          }
-
-          if (nextPathSpawns) {
-            defineNextTests(nextPathSpawns, testCaseId, () => context);
-          }
-        });
-      }
-    };
-
-    defineNextTests(pathInitializes);
+    return test(pathInitializes, {
+      bail,
+      filter,
+      verbose,
+      listOnly,
+      defineNodeMap: this.defineNodeMap,
+      setupCallback: this.setupCallback,
+      teardownCallback: this.teardownCallback,
+      beforeCallback: this.beforeCallback,
+      afterCallback: this.afterCallback,
+      afterEachCallback: this.afterEachCallback,
+    });
   }
 
-  search(options?: TurningSearchOptions): PathInitialize[];
-  search({
+  private search({
     allowUnreachable = false,
     minTransitionSearchCount = 10,
     randomSeed = new Date().toDateString(),
-  }: TurningSearchOptions = {}): PathInitialize[] {
+  }: TurningSearchOptions = {}): SearchResult {
     this.validateStatesAndStatePatterns();
 
     let manualTestCases = this.buildManualTestCases();
 
-    let {pathInitializes, reachedStateSet} = searchTestCases({
+    let result = search({
       initializeNodes: this.initializeNodes,
       transitionNodes: this.transitionNodes,
       transitionMatchOptionsMap: this.transitionMatchOptionsMap,
@@ -240,12 +203,12 @@ export class Turning<TContext> {
 
     if (!allowUnreachable) {
       let definedStateSet = new Set(this.defineNodeMap.keys());
-      assertNoUnreachableStates(definedStateSet, reachedStateSet);
+      assertNoUnreachableStates(definedStateSet, result.reachedStateSet);
     }
 
     assertNoUnreachableTransitions(this.transitionNodes);
 
-    return pathInitializes;
+    return result;
   }
 
   private validateStatesAndStatePatterns(): void {
@@ -299,7 +262,10 @@ export class Turning<TContext> {
   }
 
   private buildManualTestCases(): ManualTestCase[] {
-    let aliasToPathNodeMap = new Map<string, PathNode>();
+    let aliasToPathNodeMap = new Map<
+      string,
+      PathNode<TContext, TEnvironment>
+    >();
 
     for (let pathNode of [...this.initializeNodes, ...this.transitionNodes]) {
       if (pathNode._alias) {
@@ -324,51 +290,6 @@ export class Turning<TContext> {
       },
     );
   }
-
-  private async testStates(context: unknown, states: string[]): Promise<void> {
-    let defineNodeMap = this.defineNodeMap;
-
-    for (let state of states) {
-      let defineNode = defineNodeMap.get(state)!;
-
-      let {testHandler} = defineNode;
-
-      if (!testHandler) {
-        continue;
-      }
-
-      await testHandler(context);
-    }
-  }
-}
-
-interface PathTurnsAndNextSpawns {
-  turns: PathTurn[];
-  spawns: PathSpawn[] | undefined;
-}
-
-function getPathTurnsAndNextSpawns(
-  pathStart: PathStart,
-): PathTurnsAndNextSpawns {
-  let turns: PathTurn[] = [];
-
-  let via: PathVia = pathStart;
-
-  while (via.turn) {
-    via = via.turn;
-
-    turns.push(via);
-  }
-
-  return {
-    turns,
-    spawns: via.spawns,
-  };
-}
-
-function getRelatedTestCaseIds(testCaseId: string): string[] {
-  let parts = testCaseId.split('.');
-  return parts.map((_part, index) => parts.slice(0, index + 1).join('.'));
 }
 
 function assertNoUnreachableStates(
@@ -395,7 +316,7 @@ function assertNoUnreachableStates(
 }
 
 function assertNoUnreachableTransitions(
-  transitionNodes: TransitionNode[],
+  transitionNodes: TransitionNode<unknown, unknown>[],
 ): void {
   let unreachableTransformNodes = transitionNodes.filter(node => !node.reached);
 
@@ -408,21 +329,4 @@ function assertNoUnreachableTransitions(
       .map(node => `  ${node._alias || node.description}`)
       .join('\n')}`,
   );
-}
-
-function buildTestCaseName(
-  {node, caseNameOnEnd, states}: PathVia,
-  verbose: boolean,
-): string {
-  let name = node.description;
-
-  if (caseNameOnEnd) {
-    name += ` <${caseNameOnEnd}>`;
-  }
-
-  if (verbose) {
-    name += `, current states [${states.join(',')}]`;
-  }
-
-  return name;
 }

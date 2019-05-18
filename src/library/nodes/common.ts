@@ -1,8 +1,17 @@
-export type TestHandler<TContext = unknown> = (
-  context: TContext,
-) => Promise<void> | void;
+import {InitializeNode} from './initialize-node';
+import {SpawnNode, TransitionNode} from './transform-nodes';
 
-export interface IPathNode {
+export type PathNode<TContext, TEnvironment> =
+  | InitializeNode<TContext, TEnvironment>
+  | TransitionNode<TContext, TEnvironment>;
+
+export type StartNode<TContext, TEnvironment> =
+  | InitializeNode<TContext, TEnvironment>
+  | SpawnNode<TContext, TEnvironment>;
+
+export type TestHandler<TContext> = (context: TContext) => Promise<void> | void;
+
+export interface IPathNode<TContext> {
   /** @internal */
   id: number;
 
@@ -16,7 +25,7 @@ export interface IPathNode {
   description: string;
 
   /** @internal */
-  testHandler: TestHandler | undefined;
+  testHandler: TestHandler<TContext> | undefined;
 
   /** @internal */
   _depth: number | undefined;

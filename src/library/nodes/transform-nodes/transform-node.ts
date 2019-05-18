@@ -12,8 +12,9 @@ export interface TransformMatchOptions {
   negativePatterns: string[];
 }
 
-export type TransformHandler<TContext = unknown> = (
+export type TransformHandler<TContext, TEnvironment> = (
   context: TContext,
+  environment: TEnvironment,
 ) => Promise<TContext | void> | TContext | void;
 
 export interface NegativeStateMatchingPattern {
@@ -32,7 +33,8 @@ export interface TransformNodeOptions {
   matches?: (SingleMultipleStateMatchingPattern)[];
 }
 
-abstract class TransformNode<TContext = unknown> implements IPathNode {
+abstract class TransformNode<TContext, TEnvironment>
+  implements IPathNode<TContext> {
   /** @internal */
   readonly id = generateNodeId();
 
@@ -46,7 +48,7 @@ abstract class TransformNode<TContext = unknown> implements IPathNode {
   newStates!: string[];
 
   /** @internal */
-  handler!: TransformHandler<TContext>;
+  handler!: TransformHandler<TContext, TEnvironment>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
@@ -148,10 +150,13 @@ abstract class TransformNode<TContext = unknown> implements IPathNode {
   }
 
   /** @internal */
-  async transit(context: TContext): Promise<TContext> {
+  async transit(
+    context: TContext,
+    environment: TEnvironment,
+  ): Promise<TContext> {
     let handler = this.handler;
 
-    let updatedContext = await handler(context);
+    let updatedContext = await handler(context, environment);
 
     return updatedContext || context;
   }
@@ -168,19 +173,22 @@ abstract class TransformNode<TContext = unknown> implements IPathNode {
   }
 }
 
-export interface ITransformNode extends TransformNode {}
+export interface ITransformNode<TContext, TEnvironment>
+  extends TransformNode<TContext, TEnvironment> {}
 
 export const AbstractTransformNode = TransformNode;
 
 export class TransformToChain<
-  TContext = unknown,
-  TTransformHandler extends TransformHandler<TContext> = TransformHandler<
-    TContext
-  >
+  TContext,
+  TEnvironment,
+  TTransformHandler extends TransformHandler<
+    TContext,
+    TEnvironment
+  > = TransformHandler<TContext, TEnvironment>
 > {
   constructor(
     /** @internal */
-    readonly node: TransformNode<TContext>,
+    readonly node: TransformNode<TContext, TEnvironment>,
   ) {}
 
   alias(alias: string): this {

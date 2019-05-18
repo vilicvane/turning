@@ -4,13 +4,19 @@ import Prando from 'prando';
 
 import {pairwise} from './@utils';
 import {
-  InitializeNode,
-  PathNode,
-  SpawnNode,
+  InitializeNode as _InitializeNode,
+  PathNode as _PathNode,
+  SpawnNode as _SpawnNode,
   TransformMatchOptions,
-  TransitionNode,
-  TurnNode,
+  TransitionNode as _TransitionNode,
+  TurnNode as _TurnNode,
 } from './nodes';
+
+type InitializeNode = _InitializeNode<unknown, unknown>;
+type PathNode = _PathNode<unknown, unknown>;
+type SpawnNode = _SpawnNode<unknown, unknown>;
+type TransitionNode = _TransitionNode<unknown, unknown>;
+type TurnNode = _TurnNode<unknown, unknown>;
 
 export interface IPathVia {
   caseNameOnEnd: string | undefined;
@@ -50,29 +56,32 @@ export interface ManualTestCase {
   path: PathNode[];
 }
 
-export interface SearchTestCasesOptions {
+export interface SearchOptions {
   initializeNodes: InitializeNode[];
   transitionNodes: TransitionNode[];
   manualTestCases: ManualTestCase[];
   transitionMatchOptionsMap: Map<string | undefined, TransformMatchOptions>;
-  // definedStateSet
   minTransitionSearchCount: number;
   randomSeed: string | number | undefined;
 }
 
-export interface SearchTestCasesResult {
+export interface SearchResult {
   pathInitializes: PathInitialize[];
   reachedStateSet: Set<string>;
+  total: number;
+  elapsedTime: number;
 }
 
-export function searchTestCases({
+export function search({
   initializeNodes,
   transitionNodes,
   transitionMatchOptionsMap,
   manualTestCases,
   minTransitionSearchCount,
   randomSeed,
-}: SearchTestCasesOptions): SearchTestCasesResult {
+}: SearchOptions): SearchResult {
+  let searchStartedAt = Date.now();
+
   let reachedStateSet = new Set<string>();
 
   let rawSourceToTransitionNodeToRawDestinationMapMap = new Map<
@@ -403,6 +412,8 @@ export function searchTestCases({
   return {
     pathInitializes,
     reachedStateSet,
+    total: dedupedTestCases.length,
+    elapsedTime: Date.now() - searchStartedAt,
   };
 
   function blockTransition(source: string, destination: string): void {
@@ -728,7 +739,7 @@ function buildTestCasePaths(
 
       let caseNameOnEnd = getManualTestCaseNameOnEnd(testCases, index);
 
-      if (transitionNode instanceof TurnNode) {
+      if (transitionNode instanceof _TurnNode) {
         nextPathStarts = currentPathStarts;
 
         pathStart = clonePath(parentPathStart);

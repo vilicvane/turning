@@ -6,11 +6,12 @@ import {
   TransformToChain,
 } from './transform-node';
 
-export class TurnNode<TContext = unknown> extends AbstractTransformNode<
-  TContext
+export class TurnNode<TContext, TEnvironment> extends AbstractTransformNode<
+  TContext,
+  TEnvironment
 > {
   /** @internal */
-  handler!: TransformHandler<TContext>;
+  handler!: TransformHandler<TContext, TEnvironment>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
@@ -28,7 +29,7 @@ export class TurnNode<TContext = unknown> extends AbstractTransformNode<
     return description;
   }
 
-  to(states: string[]): TransformToChain<TContext> {
+  to(states: string[]): TransformToChain<TContext, TEnvironment> {
     this.newStates = states;
 
     return new TransformToChain(this);

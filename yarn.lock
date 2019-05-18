@@ -416,11 +416,6 @@
   resolved "https://registry.yarnpkg.com/@types/yargs/-/yargs-12.0.12.tgz#45dd1d0638e8c8f153e87d296907659296873916"
   integrity sha512-SOhuU4wNBxhhTHxYaiG5NY4HBhDIDnJF60GU+2LqHAdKKer86//e4yg69aENCtQ04n0ovz+tq2YPME5t5yp4pw==
 
-"@tyriar/fibonacci-heap@^2.0.9":
-  version "2.0.9"
-  resolved "https://registry.yarnpkg.com/@tyriar/fibonacci-heap/-/fibonacci-heap-2.0.9.tgz#df3dcbdb1b9182168601f6318366157ee16666e9"
-  integrity sha512-bYuSNomfn4hu2tPiDN+JZtnzCpSpbJ/PNeulmocDy3xN2X5OkJL65zo6rPZp65cPPhLF9vfT/dgE+RtFRCSxOA==
-
 abab@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/abab/-/abab-2.0.0.tgz#aba0ab4c5eee2d4c79d3487d85450fb2376ebb0f"
@@ -3914,6 +3909,13 @@ verror@1.10.0:
     assert-plus "^1.0.0"
     core-util-is "1.0.2"
     extsprintf "^1.2.0"
+
+villa@^0.3.1:
+  version "0.3.1"
+  resolved "https://registry.yarnpkg.com/villa/-/villa-0.3.1.tgz#31a00b065fc2a312f1953ec86c8ac2bd4da5d5be"
+  integrity sha512-3HHU00VBOXcgjQKsAqbkXjSR5rFJfToN7jnZYLt4aTAnmH5eHsArLQ5eL0yMMgigU55mPZ4XNOD1zFnKFVSpRA==
+  dependencies:
+    tslib "^1.8.0"
 
 w3c-hr-time@^1.0.1:
   version "1.0.1"

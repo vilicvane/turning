@@ -21,12 +21,13 @@
     "bld/library"
   ],
   "dependencies": {
-    "@tyriar/fibonacci-heap": "^2.0.9",
+    "chalk": "^2.4.2",
     "lodash": "^4.17.11",
     "micromatch": "^4.0.2",
     "node-dijkstra": "^2.5.0",
     "prando": "^5.1.0",
-    "tslang": "^0.1.13"
+    "tslang": "^0.1.13",
+    "villa": "^0.3.1"
   },
   "devDependencies": {
     "@magicspace/configs": "^0.1.47",
