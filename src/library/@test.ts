@@ -250,27 +250,26 @@ export async function test<TContext, TEnvironment>(
       states: string[],
       context: TContext,
     ): Promise<boolean> {
-      let passed = true;
-
-      for (let state of states) {
+      let results = await v.map(states, async state => {
         let defineNode = defineNodeMap.get(state)!;
 
         let {testHandler} = defineNode;
 
         if (!testHandler) {
-          continue;
+          return true;
         }
 
         try {
           await testHandler(context);
+          return true;
         } catch (error) {
-          passed = false;
           printErrorBadge(`State "${state}" test failed`, depth + 1);
           printError(error, depth + 1);
+          return false;
         }
-      }
+      });
 
-      return passed;
+      return results.every(result => result);
     }
 
     async function testTransition(

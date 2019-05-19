@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import match from 'micromatch';
 
-import {ManualTestCase, SearchResult, search} from './@search';
+import {ManualTestCase, PathInitialize, search} from './@search';
 import {
   TurningAfterCallback,
   TurningAfterEachCallback,
@@ -162,12 +162,7 @@ export class Turning<TContext, TEnvironment> {
     listOnly = false,
     ...searchOptions
   }: TurningTestOptions = {}): Promise<boolean> {
-    let {pathInitializes, total, elapsedTime} = this.search(searchOptions);
-
-    console.info('Total number of test cases:', total);
-    console.info('Elapsed time searching test cases:', `${elapsedTime}ms`);
-
-    console.info();
+    let pathInitializes = this.search(searchOptions);
 
     return test(pathInitializes, {
       bail,
@@ -187,12 +182,12 @@ export class Turning<TContext, TEnvironment> {
     allowUnreachable = false,
     minTransitionSearchCount = 10,
     randomSeed = new Date().toDateString(),
-  }: TurningSearchOptions = {}): SearchResult {
+  }: TurningSearchOptions = {}): PathInitialize[] {
     this.validateStatesAndStatePatterns();
 
     let manualTestCases = this.buildManualTestCases();
 
-    let result = search({
+    let {pathInitializes, reachedStateSet} = search({
       initializeNodes: this.initializeNodes,
       transitionNodes: this.transitionNodes,
       transitionMatchOptionsMap: this.transitionMatchOptionsMap,
@@ -203,12 +198,12 @@ export class Turning<TContext, TEnvironment> {
 
     if (!allowUnreachable) {
       let definedStateSet = new Set(this.defineNodeMap.keys());
-      assertNoUnreachableStates(definedStateSet, result.reachedStateSet);
+      assertNoUnreachableStates(definedStateSet, reachedStateSet);
     }
 
     assertNoUnreachableTransitions(this.transitionNodes);
 
-    return result;
+    return pathInitializes;
   }
 
   private validateStatesAndStatePatterns(): void {

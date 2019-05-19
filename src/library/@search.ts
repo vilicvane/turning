@@ -68,8 +68,6 @@ export interface SearchOptions {
 export interface SearchResult {
   pathInitializes: PathInitialize[];
   reachedStateSet: Set<string>;
-  total: number;
-  elapsedTime: number;
 }
 
 export function search({
@@ -80,6 +78,8 @@ export function search({
   minTransitionSearchCount,
   randomSeed,
 }: SearchOptions): SearchResult {
+  console.info('Test case searching random seed:', randomSeed);
+
   let searchStartedAt = Date.now();
 
   let reachedStateSet = new Set<string>();
@@ -409,11 +409,17 @@ export function search({
     rawSourceToTransitionNodeToRawDestinationMapMap,
   );
 
+  console.info('Total number of test cases:', dedupedTestCases.length);
+  console.info(
+    'Elapsed time searching test cases:',
+    `${Date.now() - searchStartedAt} ms`,
+  );
+
+  console.info();
+
   return {
     pathInitializes,
     reachedStateSet,
-    total: dedupedTestCases.length,
-    elapsedTime: Date.now() - searchStartedAt,
   };
 
   function blockTransition(source: string, destination: string): void {
