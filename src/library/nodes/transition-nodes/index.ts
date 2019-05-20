@@ -5,6 +5,6 @@ export type TransitionNode<TContext, TEnvironment> =
   | TurnNode<TContext, TEnvironment>
   | SpawnNode<TContext, TEnvironment>;
 
-export * from './transform-node';
+export * from './transition-node';
 export * from './turn-node';
 export * from './spawn-node';

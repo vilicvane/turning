@@ -1,17 +1,17 @@
 import {TestHandler} from '../common';
 
 import {
-  AbstractTransformNode,
-  TransformHandler,
-  TransformToChain,
-} from './transform-node';
+  AbstractTransitionNode,
+  TransitionHandler,
+  TransitionToChain,
+} from './transition-node';
 
-export class TurnNode<TContext, TEnvironment> extends AbstractTransformNode<
+export class TurnNode<TContext, TEnvironment> extends AbstractTransitionNode<
   TContext,
   TEnvironment
 > {
   /** @internal */
-  handler!: TransformHandler<TContext, TEnvironment>;
+  handler!: TransitionHandler<TContext, TEnvironment>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
@@ -29,9 +29,9 @@ export class TurnNode<TContext, TEnvironment> extends AbstractTransformNode<
     return description;
   }
 
-  to(states: string[]): TransformToChain<TContext, TEnvironment> {
+  to(states: string[]): TransitionToChain<TContext, TEnvironment> {
     this.newStates = states;
 
-    return new TransformToChain(this);
+    return new TransitionToChain(this);
   }
 }

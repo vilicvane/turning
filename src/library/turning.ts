@@ -16,11 +16,11 @@ import {
   PathNode,
   SingleMultipleStateMatchingPattern,
   SpawnNode,
-  TransformMatchOptions,
-  TransformNodeOptions,
+  TransitionMatchOptions,
   TransitionNode,
+  TransitionNodeOptions,
   TurnNode,
-  buildTransformMatchOptions,
+  buildTransitionMatchOptions,
 } from './nodes';
 
 interface TurningSearchOptions {
@@ -49,7 +49,7 @@ export class Turning<TContext, TEnvironment> {
 
   private transitionMatchOptionsMap = new Map<
     string | undefined,
-    TransformMatchOptions
+    TransitionMatchOptions
   >();
 
   private initializeNodes: InitializeNode<TContext, TEnvironment>[] = [];
@@ -116,7 +116,7 @@ export class Turning<TContext, TEnvironment> {
 
     this.transitionMatchOptionsMap.set(
       name as string | undefined,
-      buildTransformMatchOptions(patterns),
+      buildTransitionMatchOptions(patterns),
     );
   }
 
@@ -128,7 +128,7 @@ export class Turning<TContext, TEnvironment> {
 
   turn(
     states: string[],
-    options: TransformNodeOptions = {},
+    options: TransitionNodeOptions = {},
   ): TurnNode<TContext, TEnvironment> {
     let node = new TurnNode<TContext, TEnvironment>(states, options);
     this.transitionNodes.push(node);
@@ -137,7 +137,7 @@ export class Turning<TContext, TEnvironment> {
 
   spawn(
     states: string[],
-    options: TransformNodeOptions = {},
+    options: TransitionNodeOptions = {},
   ): SpawnNode<TContext, TEnvironment> {
     let node = new SpawnNode<TContext, TEnvironment>(states, options);
     this.transitionNodes.push(node);
@@ -216,14 +216,14 @@ export class Turning<TContext, TEnvironment> {
       }
     }
 
-    for (let transformNode of this.transitionNodes) {
-      for (let state of transformNode.newStates) {
+    for (let transitionNode of this.transitionNodes) {
+      for (let state of transitionNode.newStates) {
         stateSet.add(state);
       }
 
       for (let statePattern of [
-        ...transformNode.obsoleteStatePatterns,
-        ...transformNode.relatedStatePatterns,
+        ...transitionNode.obsoleteStatePatterns,
+        ...transitionNode.relatedStatePatterns,
       ]) {
         statePatternSet.add(statePattern);
       }
@@ -313,14 +313,16 @@ function assertNoUnreachableStates(
 function assertNoUnreachableTransitions(
   transitionNodes: TransitionNode<unknown, unknown>[],
 ): void {
-  let unreachableTransformNodes = transitionNodes.filter(node => !node.reached);
+  let unreachableTransitionNodes = transitionNodes.filter(
+    node => !node.reached,
+  );
 
-  if (!unreachableTransformNodes.length) {
+  if (!unreachableTransitionNodes.length) {
     return;
   }
 
   throw new Error(
-    `Unreachable transforms:\n${unreachableTransformNodes
+    `Unreachable transitions:\n${unreachableTransitionNodes
       .map(node => `  ${node._alias || node.description}`)
       .join('\n')}`,
   );

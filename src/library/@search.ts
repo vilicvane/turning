@@ -7,7 +7,7 @@ import {
   InitializeNode as _InitializeNode,
   PathNode as _PathNode,
   SpawnNode as _SpawnNode,
-  TransformMatchOptions,
+  TransitionMatchOptions,
   TransitionNode as _TransitionNode,
   TurnNode as _TurnNode,
 } from './nodes';
@@ -60,7 +60,7 @@ export interface SearchOptions {
   initializeNodes: InitializeNode[];
   transitionNodes: TransitionNode[];
   manualTestCases: ManualTestCase[];
-  transitionMatchOptionsMap: Map<string | undefined, TransformMatchOptions>;
+  transitionMatchOptionsMap: Map<string | undefined, TransitionMatchOptions>;
   minTransitionSearchCount: number;
   randomSeed: string | number | undefined;
 }

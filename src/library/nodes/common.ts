@@ -1,5 +1,5 @@
 import {InitializeNode} from './initialize-node';
-import {SpawnNode, TransitionNode} from './transform-nodes';
+import {SpawnNode, TransitionNode} from './transition-nodes';
 
 export type PathNode<TContext, TEnvironment> =
   | InitializeNode<TContext, TEnvironment>

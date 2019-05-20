@@ -7,12 +7,12 @@ import {generateNodeId} from '../@utils';
 import {IPathNode, TestHandler} from '../common';
 import {ResultNode} from '../result-node';
 
-export interface TransformMatchOptions {
+export interface TransitionMatchOptions {
   patterns: string[];
   negativePatterns: string[];
 }
 
-export type TransformHandler<TContext, TEnvironment> = (
+export type TransitionHandler<TContext, TEnvironment> = (
   context: TContext,
   environment: TEnvironment,
 ) => Promise<TContext | void> | TContext | void;
@@ -27,13 +27,13 @@ export type SingleMultipleStateMatchingPattern =
   | StateMatchingPattern
   | StateMatchingPattern[];
 
-export interface TransformNodeOptions {
+export interface TransitionNodeOptions {
   pattern?: string | false;
   match?: SingleMultipleStateMatchingPattern;
   matches?: (SingleMultipleStateMatchingPattern)[];
 }
 
-abstract class TransformNode<TContext, TEnvironment>
+abstract class TransitionNode<TContext, TEnvironment>
   implements IPathNode<TContext> {
   /** @internal */
   readonly id = generateNodeId();
@@ -48,7 +48,7 @@ abstract class TransformNode<TContext, TEnvironment>
   newStates!: string[];
 
   /** @internal */
-  handler!: TransformHandler<TContext, TEnvironment>;
+  handler!: TransitionHandler<TContext, TEnvironment>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
@@ -64,7 +64,7 @@ abstract class TransformNode<TContext, TEnvironment>
 
   private patternName: string | false | undefined;
 
-  private matchOptionsList: TransformMatchOptions[];
+  private matchOptionsList: TransitionMatchOptions[];
 
   constructor(
     /** @internal */
@@ -73,7 +73,7 @@ abstract class TransformNode<TContext, TEnvironment>
       pattern: patternName,
       match: matchPatterns,
       matches: matchPatternsList,
-    }: TransformNodeOptions,
+    }: TransitionNodeOptions,
   ) {
     this.patternName = patternName;
 
@@ -83,7 +83,7 @@ abstract class TransformNode<TContext, TEnvironment>
       matchPatternsList = [];
     }
 
-    this.matchOptionsList = matchPatternsList.map(buildTransformMatchOptions);
+    this.matchOptionsList = matchPatternsList.map(buildTransitionMatchOptions);
   }
 
   get relatedStatePatterns(): string[] {
@@ -101,7 +101,7 @@ abstract class TransformNode<TContext, TEnvironment>
   /** @internal */
   transitStates(
     states: string[],
-    matchOptionsMap: Map<string | undefined, TransformMatchOptions>,
+    matchOptionsMap: Map<string | undefined, TransitionMatchOptions>,
   ): string[] | undefined {
     let obsoleteStatePatterns = this.obsoleteStatePatterns;
 
@@ -173,22 +173,22 @@ abstract class TransformNode<TContext, TEnvironment>
   }
 }
 
-export interface ITransformNode<TContext, TEnvironment>
-  extends TransformNode<TContext, TEnvironment> {}
+export interface ITransitionNode<TContext, TEnvironment>
+  extends TransitionNode<TContext, TEnvironment> {}
 
-export const AbstractTransformNode = TransformNode;
+export const AbstractTransitionNode = TransitionNode;
 
-export class TransformToChain<
+export class TransitionToChain<
   TContext,
   TEnvironment,
-  TTransformHandler extends TransformHandler<
+  TTransitionHandler extends TransitionHandler<
     TContext,
     TEnvironment
-  > = TransformHandler<TContext, TEnvironment>
+  > = TransitionHandler<TContext, TEnvironment>
 > {
   constructor(
     /** @internal */
-    readonly node: TransformNode<TContext, TEnvironment>,
+    readonly node: TransitionNode<TContext, TEnvironment>,
   ) {}
 
   alias(alias: string): this {
@@ -206,7 +206,7 @@ export class TransformToChain<
     return this;
   }
 
-  by(description: string, handler: TTransformHandler): ResultNode<TContext> {
+  by(description: string, handler: TTransitionHandler): ResultNode<TContext> {
     let node = this.node;
 
     node._description = description;
@@ -216,9 +216,9 @@ export class TransformToChain<
   }
 }
 
-export function buildTransformMatchOptions(
+export function buildTransitionMatchOptions(
   patterns: SingleMultipleStateMatchingPattern,
-): TransformMatchOptions {
+): TransitionMatchOptions {
   if (!Array.isArray(patterns)) {
     patterns = [patterns];
   }
@@ -242,7 +242,7 @@ export function buildTransformMatchOptions(
 
 function testMatchOptions(
   states: string[],
-  {patterns, negativePatterns}: TransformMatchOptions,
+  {patterns, negativePatterns}: TransitionMatchOptions,
 ): boolean {
   for (let pattern of patterns) {
     if (match(states, pattern).length === 0) {

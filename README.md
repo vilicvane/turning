@@ -2,7 +2,7 @@
 
 > This project is currently just a proof of concept, any feedback is welcome.
 
-State-based test case generator.
+Automated state transition testing.
 
 ## Why & How
 
@@ -10,9 +10,9 @@ Writing E2E test cases is frustrating, and the best we can do in practice usuall
 
 The scenario that triggers this idea was testing a package manager similar to `npm`, but it should apply to varieties of scenarios including E2E tests for web apps.
 
-Turning splits the composition of test cases into two parts: **states** and **transformations**.
+Turning splits the composition of test cases into two parts: **states** and **transitions**.
 
-The state definitions can verify whether the current context complies the states it's claimed to be; and the transformation definitions tell possible paths of how the states transforms from one to another in context.
+The state definitions can verify whether the current context complies the states it's claimed to be; and the transition definitions tell possible paths of how the states transit from one to another in context.
 
 ### Example
 
@@ -30,7 +30,7 @@ turning.define('session:logged-in').test(async ({page}) => {
 });
 ```
 
-And we can transform those two states by two transformations:
+And we can transit those two states by two transitions:
 
 ```ts
 turning
@@ -63,13 +63,9 @@ Thus a test case can be automatically generated:
 
 - `login` -> `logout`
 
-And with different `maxDepth` and `maxRepeat` options, the test case generated could look like:
+By introducing more states and transitions, plentiful test cases could be generated without your spending time struggling thinking of different compositions.
 
-- `login` -> `logout` -> `login` -> `logout`
-
-By introducing more states and transformations, plentiful test cases could be generated without your spending time struggling thinking of different compositions. And the generated test cases would easily cover some edge cases you would never want to write by hand.
-
-Also, as the test cases are automatically generated based on options, we can use smaller depth and repeat options for local development and CI for commits, and use greater depth and repeat options for daily or release builds.
+Turning currently uses a tricky algorithm to search for available test cases. It tries to find possible combinations of test cases that cover all the states and transitions, while keep the number of test cases reasonable.
 
 ## Installation
 
@@ -107,7 +103,7 @@ turning
     return {};
   });
 
-// Define transformation nodes:
+// Define transition nodes:
 
 // Check out the content below for differences about `turn` and `spawn`.
 
@@ -124,33 +120,31 @@ turning
   .to(['state-a'])
   .alias('b to a')
   .by(async context => {
-    // Spawn transformation must return new context object.
+    // Spawn transition must return new context object.
     return {};
   });
 
 // Generate test cases with `describe` and `test` provided.
-turning.test();
+turning.test().then(passed => {
+  process.exit(passed ? 0 : 1);
+});
 ```
 
 For now, you can checkout [makeflow-e2e](https://github.com/makeflow/makeflow-e2e) for more usages.
 
-## Transformations
+## Transitions
 
-Turning provides two different concepts of transformation: `turn` and `spawn`.
+Turning provides two different concepts of transitions: `turn` and `spawn`.
 
-- `turn`: transform a context from states to states.
-- `spawn`: duplicate a context and transform the states.
+- `turn`: transit a context from states to states.
+- `spawn`: duplicate a context and transit the states.
 
 So basically if you are using `turn`, every leaf would result in a new test case from the initialization (or recent spawning); and if you are using `spawn`, the spawned branches would begin with the same context before spawn.
 
 ## Manual Cases
 
-Turning also provides a way to manually add test cases, and this ignores `maxDepth` and `maxRepeat` options.
-
 ```ts
 turning.case('manual case 1', ['initialize a', 'a to b', 'b to a', 'a to b']);
-
-turning.test();
 ```
 
 ## License
