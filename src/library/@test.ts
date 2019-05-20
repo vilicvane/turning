@@ -41,6 +41,7 @@ export type TurningAfterEachCallback<TContext, TEnvironment> = (
 
 export interface TestOptions<TContext, TEnvironment> {
   bail: boolean;
+  maxAttempts: number;
   filter: string[] | undefined;
   verbose: boolean;
   listOnly: boolean;
@@ -64,6 +65,7 @@ export async function test<TContext, TEnvironment>(
   pathInitializes: PathInitialize[],
   {
     bail,
+    maxAttempts,
     filter: filteringTestCaseIds,
     verbose,
     listOnly,
@@ -89,7 +91,9 @@ export async function test<TContext, TEnvironment>(
 
   if (allFailedTestCaseIds.length) {
     printErrorBadge('Failed test cases', 0);
-    console.error(indent(allFailedTestCaseIds.join('\n'), 1));
+    console.error(
+      indent(allFailedTestCaseIds.map(id => `- ${id}`).join('\n'), 1),
+    );
     console.error();
   }
 
@@ -104,22 +108,61 @@ export async function test<TContext, TEnvironment>(
     let failedTestCaseIds: string[] = [];
 
     for (let [index, pathStart] of pathStarts.entries()) {
+      let testCaseId = `${
+        parentTestCaseId ? `${parentTestCaseId}.` : ''
+      }${index + 1}`;
+
+      let passed!: boolean;
+      let existingFailedSubTestCases!: boolean;
+
+      for (let i = 0; i < maxAttempts; i++) {
+        [passed, existingFailedSubTestCases] = await runStart(
+          pathStart,
+          testCaseId,
+          i,
+        );
+
+        if (passed || existingFailedSubTestCases) {
+          // If passed, no need to retry; if it did not pass but sub test cases
+          // failed, it should have already reached max attempts.
+          break;
+        }
+      }
+
+      if (!passed) {
+        if (!existingFailedSubTestCases) {
+          failedTestCaseIds.push(testCaseId);
+        }
+
+        if (bail) {
+          break;
+        }
+      }
+    }
+
+    return failedTestCaseIds;
+
+    async function runStart(
+      pathStart: PathStart,
+      testCaseId: string,
+      attempts: number,
+    ): Promise<[boolean, boolean]> {
       let {
         turns: pathTurns,
         spawns: nextPathSpawns,
       } = getPathTurnsAndNextSpawns(pathStart);
 
-      let testCaseId = `${
-        parentTestCaseId ? `${parentTestCaseId}.` : ''
-      }${index + 1}`;
-
       if (onlyTestCaseIdSet && !onlyTestCaseIdSet.has(testCaseId)) {
-        continue;
+        return [true, false];
       }
 
-      let testCaseDisplayName = `Test Case ${testCaseId}`;
+      let testCaseDisplayName = Chalk.green(`Test Case ${testCaseId}`);
 
-      console.info(indent(Chalk.green(testCaseDisplayName), depth));
+      if (attempts) {
+        testCaseDisplayName += Chalk.gray(` (attempt #${attempts + 1})`);
+      }
+
+      console.info(indent(testCaseDisplayName, depth));
 
       console.info(indent(buildTestCaseName(pathStart), depth + 1));
 
@@ -212,18 +255,8 @@ export async function test<TContext, TEnvironment>(
         await after();
       }
 
-      if (!passed) {
-        if (!existingFailedSubTestCases) {
-          failedTestCaseIds.push(testCaseId);
-        }
-
-        if (bail) {
-          break;
-        }
-      }
+      return [passed, existingFailedSubTestCases];
     }
-
-    return failedTestCaseIds;
 
     async function runSteps(
       steps: (() => Promise<boolean>)[],

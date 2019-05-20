@@ -34,6 +34,7 @@ export interface TurningTestOptions extends TurningSearchOptions {
   filter?: string[];
   verbose?: boolean;
   listOnly?: boolean;
+  maxAttempts?: number;
 }
 
 export class Turning<TContext, TEnvironment> {
@@ -157,6 +158,7 @@ export class Turning<TContext, TEnvironment> {
   async test(options?: TurningTestOptions): Promise<boolean>;
   async test({
     bail = false,
+    maxAttempts = 1,
     filter,
     verbose = false,
     listOnly = false,
@@ -166,6 +168,7 @@ export class Turning<TContext, TEnvironment> {
 
     return test(pathInitializes, {
       bail,
+      maxAttempts,
       filter,
       verbose,
       listOnly,
