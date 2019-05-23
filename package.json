@@ -18,7 +18,8 @@
   "types": "bld/library/index.d.ts",
   "files": [
     "src/library/**/*.ts",
-    "bld/library"
+    "bld/library",
+    "!*.tsbuildinfo"
   ],
   "dependencies": {
     "chalk": "^2.4.2",
