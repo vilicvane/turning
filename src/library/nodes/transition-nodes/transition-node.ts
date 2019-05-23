@@ -98,6 +98,12 @@ abstract class TransitionNode<TContext, TEnvironment>
   /** @internal */
   abstract get description(): string;
 
+  to(states: string[]): TransitionToChain<TContext, TEnvironment> {
+    this.newStates = states;
+
+    return new TransitionToChain(this);
+  }
+
   /** @internal */
   transitStates(
     states: string[],

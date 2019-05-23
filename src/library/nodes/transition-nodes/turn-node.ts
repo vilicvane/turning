@@ -1,10 +1,6 @@
 import {TestHandler} from '../common';
 
-import {
-  AbstractTransitionNode,
-  TransitionHandler,
-  TransitionToChain,
-} from './transition-node';
+import {AbstractTransitionNode, TransitionHandler} from './transition-node';
 
 export class TurnNode<TContext, TEnvironment> extends AbstractTransitionNode<
   TContext,
@@ -27,11 +23,5 @@ export class TurnNode<TContext, TEnvironment> extends AbstractTransitionNode<
     }
 
     return description;
-  }
-
-  to(states: string[]): TransitionToChain<TContext, TEnvironment> {
-    this.newStates = states;
-
-    return new TransitionToChain(this);
   }
 }

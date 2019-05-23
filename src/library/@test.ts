@@ -10,6 +10,8 @@ import {
   PathVia,
 } from './@search';
 import {indent} from './@utils';
+import {ITurningContext} from './context';
+import {ITurningEnvironment} from './environment';
 import {
   DefineNode,
   InitializeNode,
@@ -18,41 +20,17 @@ import {
   TurnNode,
 } from './nodes';
 
-export type TurningSetupCallback<TEnvironment> = () =>
-  | Promise<TEnvironment>
-  | TEnvironment;
-
-export type TurningTeardownCallback<TEnvironment> = (
-  environment: TEnvironment,
-) => Promise<void> | void;
-
-export type TurningBeforeCallback<TEnvironment> = (
-  environment: TEnvironment,
-) => Promise<void> | void;
-
-export type TurningAfterCallback<TEnvironment> = (
-  environment: TEnvironment,
-) => Promise<void> | void;
-
-export type TurningAfterEachCallback<TContext, TEnvironment> = (
-  context: TContext,
-  environment: TEnvironment,
-) => Promise<void> | void;
-
-export interface TestOptions<TContext, TEnvironment> {
+export interface TestOptions<
+  TContext extends ITurningContext,
+  TEnvironment extends ITurningEnvironment<TContext>
+> {
+  environment: TEnvironment;
   bail: boolean;
   maxAttempts: number;
   filter: string[] | undefined;
   verbose: boolean;
   listOnly: boolean;
   defineNodeMap: Map<string, DefineNode<TContext>>;
-  setupCallback: TurningSetupCallback<TEnvironment> | undefined;
-  teardownCallback: TurningTeardownCallback<TEnvironment> | undefined;
-  beforeCallback: TurningBeforeCallback<TEnvironment> | undefined;
-  afterCallback: TurningAfterCallback<TEnvironment> | undefined;
-  afterEachCallback:
-    | TurningAfterEachCallback<TContext, TEnvironment>
-    | undefined;
 }
 
 export interface TestResult {
@@ -61,27 +39,24 @@ export interface TestResult {
   failed: number;
 }
 
-export async function test<TContext, TEnvironment>(
+export async function test<
+  TContext extends ITurningContext,
+  TEnvironment extends ITurningEnvironment<TContext>
+>(
   pathInitializes: PathInitialize[],
   {
+    environment,
     bail,
     maxAttempts,
     filter: filteringTestCaseIds,
     verbose,
     listOnly,
     defineNodeMap,
-    setupCallback,
-    teardownCallback,
-    beforeCallback,
-    afterCallback,
-    afterEachCallback,
   }: TestOptions<TContext, TEnvironment>,
 ): Promise<boolean> {
   let onlyTestCaseIdSet =
     filteringTestCaseIds &&
     new Set(_.flatMap(filteringTestCaseIds, getRelatedTestCaseIds));
-
-  let environment!: TEnvironment;
 
   await setup();
 
@@ -179,28 +154,24 @@ export async function test<TContext, TEnvironment>(
       let context!: TContext;
       let startNode = pathStart.node as StartNode<TContext, TEnvironment>;
 
-      let passed = await runSteps([
-        () =>
-          transit(async () => {
-            if (startNode instanceof InitializeNode) {
-              context = await startNode.initialize(environment);
-            } else {
-              context = await startNode.transit(parentContext!, environment);
-
-              if (
-                typeof context === 'object' &&
-                context &&
-                context === parentContext
-              ) {
-                throw new Error(
-                  'Spawned context is not expected to have the same reference as the parent context',
+      let passed = await runSteps(
+        [
+          () =>
+            transit(async () => {
+              if (startNode instanceof InitializeNode) {
+                context = await startNode.initialize(environment);
+              } else {
+                context = await startNode.transit(
+                  parentContext!.spawn(),
+                  environment,
                 );
               }
-            }
-          }),
-        () => testStates(startStates, context),
-        () => testTransition(startNode, context),
-      ]);
+            }),
+          () => testStates(startStates, context),
+          () => testTransition(startNode, context),
+        ],
+        () => context,
+      );
 
       if (passed) {
         for (let pathTurn of pathTurns) {
@@ -216,14 +187,17 @@ export async function test<TContext, TEnvironment>(
 
           let turnNode = pathTurn.node as TurnNode<TContext, TEnvironment>;
 
-          passed = await runSteps([
-            () =>
-              transit(async () => {
-                context = await turnNode.transit(context, environment);
-              }),
-            () => testStates(turnStates, context),
-            () => testTransition(turnNode, context),
-          ]);
+          passed = await runSteps(
+            [
+              () =>
+                transit(async () => {
+                  context = await turnNode.transit(context, environment);
+                }),
+              () => testStates(turnStates, context),
+              () => testTransition(turnNode, context),
+            ],
+            () => context,
+          );
 
           if (!passed) {
             break;
@@ -260,12 +234,41 @@ export async function test<TContext, TEnvironment>(
 
     async function runSteps(
       steps: (() => Promise<boolean>)[],
+      contextGetter: () => TContext | undefined,
     ): Promise<boolean> {
       if (listOnly) {
         return true;
       }
 
-      return v.every(steps, step => step());
+      return v.every(steps, async step => {
+        let context = contextGetter();
+
+        let onContextError!: (error: Error) => void;
+
+        let passed = await Promise.race([
+          new Promise<boolean>(resolve => {
+            if (!context) {
+              return;
+            }
+
+            onContextError = error => {
+              printErrorBadge('Context error', depth + 1);
+              printError(error, depth + 1);
+
+              resolve(false);
+            };
+
+            context.on('error', onContextError);
+          }),
+          step(),
+        ]);
+
+        if (context) {
+          context.off('error', onContextError);
+        }
+
+        return passed;
+      });
     }
 
     async function transit(fn: () => Promise<void>): Promise<boolean> {
@@ -321,32 +324,32 @@ export async function test<TContext, TEnvironment>(
   }
 
   async function setup(): Promise<void> {
-    if (!listOnly && setupCallback) {
-      environment = await setupCallback();
+    if (!listOnly) {
+      await environment.setup();
     }
   }
 
   async function teardown(): Promise<void> {
-    if (!listOnly && teardownCallback) {
-      await teardownCallback(environment);
+    if (!listOnly) {
+      await environment.teardown();
     }
   }
 
   async function before(): Promise<void> {
-    if (!listOnly && beforeCallback) {
-      await beforeCallback(environment);
+    if (!listOnly) {
+      await environment.before();
     }
   }
 
   async function after(): Promise<void> {
-    if (!listOnly && afterCallback) {
-      await afterCallback(environment);
+    if (!listOnly) {
+      await environment.after();
     }
   }
 
   async function afterEach(context: TContext): Promise<void> {
-    if (!listOnly && afterEachCallback) {
-      await afterEachCallback(context, environment);
+    if (!listOnly) {
+      await environment.afterEach(context);
     }
   }
 }

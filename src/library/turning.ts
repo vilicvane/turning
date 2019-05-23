@@ -2,14 +2,9 @@ import _ from 'lodash';
 import match from 'micromatch';
 
 import {ManualTestCase, PathInitialize, search} from './@search';
-import {
-  TurningAfterCallback,
-  TurningAfterEachCallback,
-  TurningBeforeCallback,
-  TurningSetupCallback,
-  TurningTeardownCallback,
-  test,
-} from './@test';
+import {test} from './@test';
+import {ITurningContext} from './context';
+import {ITurningEnvironment} from './environment';
 import {
   DefineNode,
   InitializeNode,
@@ -37,15 +32,10 @@ export interface TurningTestOptions extends TurningSearchOptions {
   maxAttempts?: number;
 }
 
-export class Turning<TContext, TEnvironment> {
-  private setupCallback: TurningSetupCallback<TEnvironment> | undefined;
-  private teardownCallback: TurningTeardownCallback<TEnvironment> | undefined;
-  private beforeCallback: TurningBeforeCallback<TEnvironment> | undefined;
-  private afterCallback: TurningAfterCallback<TEnvironment> | undefined;
-  private afterEachCallback:
-    | TurningAfterEachCallback<TContext, TEnvironment>
-    | undefined;
-
+export class Turning<
+  TContext extends ITurningContext,
+  TEnvironment extends ITurningEnvironment<TContext>
+> {
   private defineNodeMap = new Map<string, DefineNode<TContext>>();
 
   private transitionMatchOptionsMap = new Map<
@@ -58,45 +48,7 @@ export class Turning<TContext, TEnvironment> {
 
   private nameToCasePathNodeAliasesMap = new Map<string, string[]>();
 
-  setup(callback: TurningSetupCallback<TEnvironment>): void {
-    if (this.setupCallback) {
-      throw new Error('Hook `setup` has already been set');
-    }
-
-    this.setupCallback = callback;
-  }
-
-  teardown(callback: TurningTeardownCallback<TEnvironment>): void {
-    if (this.teardownCallback) {
-      throw new Error('Hook `teardown` has already been set');
-    }
-
-    this.teardownCallback = callback;
-  }
-
-  before(callback: TurningBeforeCallback<TEnvironment>): void {
-    if (this.beforeCallback) {
-      throw new Error('Hook `before` has already been set');
-    }
-
-    this.beforeCallback = callback;
-  }
-
-  after(callback: TurningAfterCallback<TEnvironment>): void {
-    if (this.afterCallback) {
-      throw new Error('Hook `after` has already been set');
-    }
-
-    this.afterCallback = callback;
-  }
-
-  afterEach(callback: TurningAfterEachCallback<TContext, TEnvironment>): void {
-    if (this.afterEachCallback) {
-      throw new Error('Hook `afterEach` has already been set');
-    }
-
-    this.afterEachCallback = callback;
-  }
+  constructor(readonly environment: TEnvironment) {}
 
   define(state: string): DefineNode<TContext> {
     let node = new DefineNode<TContext>(state);
@@ -167,17 +119,13 @@ export class Turning<TContext, TEnvironment> {
     let pathInitializes = this.search(searchOptions);
 
     return test(pathInitializes, {
+      environment: this.environment,
       bail,
       maxAttempts,
       filter,
       verbose,
       listOnly,
       defineNodeMap: this.defineNodeMap,
-      setupCallback: this.setupCallback,
-      teardownCallback: this.teardownCallback,
-      beforeCallback: this.beforeCallback,
-      afterCallback: this.afterCallback,
-      afterEachCallback: this.afterEachCallback,
     });
   }
 

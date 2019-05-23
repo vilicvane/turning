@@ -1,18 +1,13 @@
 import {TestHandler} from '../common';
 
-import {AbstractTransitionNode, TransitionToChain} from './transition-node';
-
-export type SpawnHandler<TContext, TEnvironment> = (
-  context: TContext,
-  environment: TEnvironment,
-) => Promise<TContext> | TContext;
+import {AbstractTransitionNode, TransitionHandler} from './transition-node';
 
 export class SpawnNode<TContext, TEnvironment> extends AbstractTransitionNode<
   TContext,
   TEnvironment
 > {
   /** @internal */
-  handler!: SpawnHandler<TContext, TEnvironment>;
+  handler!: TransitionHandler<TContext, TEnvironment>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
@@ -28,17 +23,5 @@ export class SpawnNode<TContext, TEnvironment> extends AbstractTransitionNode<
     }
 
     return description;
-  }
-
-  to(
-    states: string[],
-  ): TransitionToChain<
-    TContext,
-    TEnvironment,
-    SpawnHandler<TContext, TEnvironment>
-  > {
-    this.newStates = states;
-
-    return new TransitionToChain(this);
   }
 }
