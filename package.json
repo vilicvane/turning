@@ -1,6 +1,6 @@
 {
   "name": "turning",
-  "version": "0.1.0-wip.4",
+  "version": "0.1.0-wip.5",
   "description": "A state-based testing framework.",
   "repository": "https://github.com/vilic/turning.git",
   "author": "vilicvane",
@@ -8,10 +8,9 @@
   "scripts": {
     "build:library": "tsc --project src/library",
     "build": "yarn build:library",
-    "lint:library": "tslint --project src/library",
-    "lint:test": "tslint --project test",
-    "lint-prettier": "prettier --check \"**/*.{ts,tsx,js,jsx,json,yml,md}\"",
-    "lint": "yarn lint-prettier && yarn lint:library && yarn lint:test",
+    "lint:library": "eslint src/library --ext .ts,.tsx",
+    "lint:prettier": "prettier --check \"**/*.{ts,tsx,js,jsx,json,yml,md}\"",
+    "lint": "yarn lint:prettier && yarn lint:library",
     "test": "jest"
   },
   "main": "bld/library/index.js",
@@ -31,14 +30,14 @@
     "villa": "^0.3.1"
   },
   "devDependencies": {
-    "@magicspace/configs": "^0.1.47",
+    "@magicspace/configs": "^0.2.3",
+    "@magicspace/eslint-plugin": "^0.1.16",
     "@types/lodash": "^4.14.123",
     "@types/micromatch": "^3.0.1",
     "@types/node": "^11.13.6",
+    "eslint": "^6.8.0",
     "prettier": "^1.17.0",
     "tslib": "^1.9.3",
-    "tslint": "^5.16.0",
-    "tslint-language-service": "^0.9.9",
     "typescript": "^3.4.4"
   }
 }
