@@ -11,8 +11,6 @@
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
   "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.tsc.autoDetect": "off",
-  "typescript.tsserver.maxTsServerMemory": 8192,
   "eslint.enable": true,
   "eslint.validate": [
     "javascript",
@@ -20,9 +18,5 @@
     "typescript",
     "typescriptreact"
   ],
-  "eslint.workingDirectories": [{"mode": "auto"}],
-  "grunt.autoDetect": "off",
-  "jake.autoDetect": "off",
-  "gulp.autoDetect": "off",
-  "npm.autoDetect": "off"
+  "eslint.workingDirectories": [{"mode": "auto"}]
 }
