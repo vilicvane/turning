@@ -29,6 +29,9 @@ export class InitializeNode<TContext, TEnvironment>
   /** @internal */
   _manual: boolean | undefined;
 
+  /** @internal */
+  _necessary: boolean | undefined;
+
   constructor(
     /** @internal */
     readonly states: string[],
@@ -57,6 +60,11 @@ export class InitializeNode<TContext, TEnvironment>
 
   manual(): this {
     this._manual = true;
+    return this;
+  }
+
+  necessary(): this {
+    this._necessary = true;
     return this;
   }
 

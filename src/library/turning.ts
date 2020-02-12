@@ -139,6 +139,7 @@ export class Turning<
     let manualTestCases = this.buildManualTestCases();
 
     let {pathInitializes, reachedStateSet} = search({
+      defineNodeMap: this.defineNodeMap,
       initializeNodes: this.initializeNodes,
       transitionNodes: this.transitionNodes,
       transitionMatchOptionsMap: this.transitionMatchOptionsMap,

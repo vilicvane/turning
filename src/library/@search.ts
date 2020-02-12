@@ -1,9 +1,11 @@
 import _ from 'lodash';
+import match from 'micromatch';
 import Graph from 'node-dijkstra';
 import Prando from 'prando';
 
 import {pairwise} from './@utils';
 import {
+  DefineNode as _DefineNode,
   InitializeNode as _InitializeNode,
   PathNode as _PathNode,
   SpawnNode as _SpawnNode,
@@ -12,6 +14,7 @@ import {
   TurnNode as _TurnNode,
 } from './nodes';
 
+type DefineNode = _DefineNode<unknown>;
 type InitializeNode = _InitializeNode<unknown, unknown>;
 type PathNode = _PathNode<unknown, unknown>;
 type SpawnNode = _SpawnNode<unknown, unknown>;
@@ -57,6 +60,7 @@ export interface ManualTestCase {
 }
 
 export interface SearchOptions {
+  defineNodeMap: Map<string, DefineNode>;
   initializeNodes: InitializeNode[];
   transitionNodes: TransitionNode[];
   manualTestCases: ManualTestCase[];
@@ -71,6 +75,7 @@ export interface SearchResult {
 }
 
 export function search({
+  defineNodeMap,
   initializeNodes,
   transitionNodes,
   transitionMatchOptionsMap,
@@ -104,13 +109,11 @@ export function search({
   let pathNodeToIndexMap = new Map<PathNode | undefined, number>([
     [undefined, 0],
   ]);
-  let indexToPathNodeMap = new Map<number, PathNode>();
 
   for (let pathNode of [...initializeNodes, ...transitionNodes]) {
     let index = pathNodeToIndexMap.size;
 
     pathNodeToIndexMap.set(pathNode, index);
-    indexToPathNodeMap.set(index, pathNode);
   }
 
   let prando = new Prando(randomSeed);
@@ -385,6 +388,31 @@ export function search({
 
   testCases.sort(compareTestCases).reverse();
 
+  if (hasNecessaryNode()) {
+    const states = [...defineNodeMap.keys()];
+
+    testCases = testCases.filter(testCase =>
+      testCase.path.some((pathNode, index) => {
+        if (pathNode._necessary) {
+          return true;
+        }
+
+        if (index > 0) {
+          let matchedStates = match(
+            states,
+            (pathNode as TransitionNode).obsoleteStatePatterns,
+          );
+
+          return matchedStates.some(
+            state => defineNodeMap.get(state)!._necessary,
+          );
+        } else {
+          return false;
+        }
+      }),
+    );
+  }
+
   let lastDedupedTestCase = testCases.shift()!;
 
   let dedupedTestCases = [lastDedupedTestCase];
@@ -646,12 +674,11 @@ export function search({
       let statesCombination: string | undefined = buildStatesCombination(
         (initializeNode as InitializeNode).states,
       );
+      let availableTransitionNodeToRawDestinationMap = rawSourceToTransitionNodeToRawDestinationMapMap.get(
+        statesCombination,
+      );
 
       for (let transitionNode of transitionNodes) {
-        let availableTransitionNodeToRawDestinationMap = rawSourceToTransitionNodeToRawDestinationMapMap.get(
-          statesCombination,
-        );
-
         let nextStatesCombination =
           availableTransitionNodeToRawDestinationMap &&
           availableTransitionNodeToRawDestinationMap.get(
@@ -686,6 +713,14 @@ export function search({
     }
 
     return xPath.length === minLength ? -1 : 1;
+  }
+
+  function hasNecessaryNode(): boolean {
+    return (
+      initializeNodes.some(initializeNode => initializeNode._necessary) ||
+      transitionNodes.some(transitionNode => transitionNode._necessary) ||
+      Array.from(defineNodeMap).some(([, defineNode]) => defineNode._necessary)
+    );
   }
 }
 
