@@ -391,8 +391,8 @@ export function search({
   if (hasNecessaryNode()) {
     const states = [...defineNodeMap.keys()];
 
-    testCases = testCases.filter(testCase =>
-      testCase.path.some((pathNode, index) => {
+    testCases = testCases.filter(testCase => {
+      return testCase.path.some((pathNode, index) => {
         if (pathNode._necessary) {
           return true;
         }
@@ -410,8 +410,8 @@ export function search({
             state => defineNodeMap.get(state)!._necessary,
           )
         );
-      }),
-    );
+      });
+    });
   }
 
   let lastDedupedTestCase = testCases.shift()!;
