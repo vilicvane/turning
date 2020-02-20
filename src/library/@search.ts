@@ -397,18 +397,19 @@ export function search({
           return true;
         }
 
-        if (index > 0) {
-          let matchedStates = match(
-            states,
-            (pathNode as TransitionNode).obsoleteStatePatterns,
-          );
-
-          return matchedStates.some(
-            state => defineNodeMap.get(state)!._necessary,
-          );
-        } else {
+        if (index === 0) {
           return false;
         }
+
+        let transitionNode = pathNode as TransitionNode;
+        let matchedStates = match(states, transitionNode.obsoleteStatePatterns);
+
+        return (
+          matchedStates.some(state => defineNodeMap.get(state)!._necessary) ||
+          transitionNode.newStates.some(
+            state => defineNodeMap.get(state)!._necessary,
+          )
+        );
       }),
     );
   }
