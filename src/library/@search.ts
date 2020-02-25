@@ -404,11 +404,11 @@ export function search({
         }
 
         if (pathNode instanceof AbstractTransitionNode) {
-          let matchedStates = match(states, pathNode.obsoleteStatePatterns);
-
           return (
-            matchedStates.some(state => defineNodeMap.get(state)!._only) ||
-            pathNode.newStates.some(state => defineNodeMap.get(state)!._only)
+            pathNode.newStates.some(state => defineNodeMap.get(state)!._only) ||
+            match(states, pathNode.obsoleteStatePatterns).some(
+              state => defineNodeMap.get(state)!._only,
+            )
           );
         }
 
