@@ -63,7 +63,7 @@ abstract class TransitionNode<TContext, TEnvironment>
   _manual: boolean | undefined;
 
   /** @internal */
-  _necessary: boolean | undefined;
+  _only: boolean | undefined;
 
   private patternName: string | false | undefined;
 
@@ -215,8 +215,8 @@ export class TransitionToChain<
     return this;
   }
 
-  necessary(): this {
-    this.node._necessary = true;
+  only(): this {
+    this.node._only = true;
     return this;
   }
 

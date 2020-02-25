@@ -30,7 +30,7 @@ export class InitializeNode<TContext, TEnvironment>
   _manual: boolean | undefined;
 
   /** @internal */
-  _necessary: boolean | undefined;
+  _only: boolean | undefined;
 
   constructor(
     /** @internal */
@@ -63,8 +63,8 @@ export class InitializeNode<TContext, TEnvironment>
     return this;
   }
 
-  necessary(): this {
-    this._necessary = true;
+  only(): this {
+    this._only = true;
     return this;
   }
 

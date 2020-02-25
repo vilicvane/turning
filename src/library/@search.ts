@@ -5,6 +5,7 @@ import Prando from 'prando';
 
 import {pairwise} from './@utils';
 import {
+  AbstractTransitionNode,
   DefineNode as _DefineNode,
   InitializeNode as _InitializeNode,
   PathNode as _PathNode,
@@ -388,30 +389,32 @@ export function search({
 
   testCases.sort(compareTestCases).reverse();
 
-  if (hasNecessaryNode()) {
-    const states = [...defineNodeMap.keys()];
+  let anyOnlyNode =
+    initializeNodes.some(initializeNode => initializeNode._only) ||
+    transitionNodes.some(transitionNode => transitionNode._only) ||
+    Array.from(defineNodeMap.values()).some(defineNode => defineNode._only);
 
-    testCases = testCases.filter(testCase => {
-      return testCase.path.some((pathNode, index) => {
-        if (pathNode._necessary) {
+  if (anyOnlyNode) {
+    const states = Array.from(defineNodeMap.keys());
+
+    testCases = testCases.filter(testCase =>
+      testCase.path.some(pathNode => {
+        if (pathNode._only) {
           return true;
         }
 
-        if (index === 0) {
-          return false;
+        if (pathNode instanceof AbstractTransitionNode) {
+          let matchedStates = match(states, pathNode.obsoleteStatePatterns);
+
+          return (
+            matchedStates.some(state => defineNodeMap.get(state)!._only) ||
+            pathNode.newStates.some(state => defineNodeMap.get(state)!._only)
+          );
         }
 
-        let transitionNode = pathNode as TransitionNode;
-        let matchedStates = match(states, transitionNode.obsoleteStatePatterns);
-
-        return (
-          matchedStates.some(state => defineNodeMap.get(state)!._necessary) ||
-          transitionNode.newStates.some(
-            state => defineNodeMap.get(state)!._necessary,
-          )
-        );
-      });
-    });
+        return false;
+      }),
+    );
   }
 
   let lastDedupedTestCase = testCases.shift()!;
@@ -714,14 +717,6 @@ export function search({
     }
 
     return xPath.length === minLength ? -1 : 1;
-  }
-
-  function hasNecessaryNode(): boolean {
-    return (
-      initializeNodes.some(initializeNode => initializeNode._necessary) ||
-      transitionNodes.some(transitionNode => transitionNode._necessary) ||
-      Array.from(defineNodeMap).some(([, defineNode]) => defineNode._necessary)
-    );
   }
 }
 

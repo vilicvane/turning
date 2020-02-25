@@ -5,12 +5,12 @@ export class DefineNode<TContext> {
   testHandler: TestHandler<TContext> | undefined;
 
   /** @internal */
-  _necessary: boolean | undefined;
+  _only: boolean | undefined;
 
   constructor(public state: string) {}
 
-  necessary(): this {
-    this._necessary = true;
+  only(): this {
+    this._only = true;
     return this;
   }
 
