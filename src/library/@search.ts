@@ -678,11 +678,12 @@ export function search({
       let statesCombination: string | undefined = buildStatesCombination(
         (initializeNode as InitializeNode).states,
       );
-      let availableTransitionNodeToRawDestinationMap = rawSourceToTransitionNodeToRawDestinationMapMap.get(
-        statesCombination,
-      );
 
       for (let transitionNode of transitionNodes) {
+        let availableTransitionNodeToRawDestinationMap = rawSourceToTransitionNodeToRawDestinationMapMap.get(
+          statesCombination,
+        );
+
         let nextStatesCombination =
           availableTransitionNodeToRawDestinationMap &&
           availableTransitionNodeToRawDestinationMap.get(
