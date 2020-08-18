@@ -1,9 +1,12 @@
 import _ from 'lodash';
+import match from 'micromatch';
 import Graph from 'node-dijkstra';
 import Prando from 'prando';
 
 import {pairwise} from './@utils';
 import {
+  AbstractTransitionNode,
+  DefineNode as _DefineNode,
   InitializeNode as _InitializeNode,
   PathNode as _PathNode,
   SpawnNode as _SpawnNode,
@@ -12,6 +15,7 @@ import {
   TurnNode as _TurnNode,
 } from './nodes';
 
+type DefineNode = _DefineNode<unknown>;
 type InitializeNode = _InitializeNode<unknown, unknown>;
 type PathNode = _PathNode<unknown, unknown>;
 type SpawnNode = _SpawnNode<unknown, unknown>;
@@ -57,6 +61,7 @@ export interface ManualTestCase {
 }
 
 export interface SearchOptions {
+  defineNodeMap: Map<string, DefineNode>;
   initializeNodes: InitializeNode[];
   transitionNodes: TransitionNode[];
   manualTestCases: ManualTestCase[];
@@ -71,6 +76,7 @@ export interface SearchResult {
 }
 
 export function search({
+  defineNodeMap,
   initializeNodes,
   transitionNodes,
   transitionMatchOptionsMap,
@@ -104,13 +110,11 @@ export function search({
   let pathNodeToIndexMap = new Map<PathNode | undefined, number>([
     [undefined, 0],
   ]);
-  let indexToPathNodeMap = new Map<number, PathNode>();
 
   for (let pathNode of [...initializeNodes, ...transitionNodes]) {
     let index = pathNodeToIndexMap.size;
 
     pathNodeToIndexMap.set(pathNode, index);
-    indexToPathNodeMap.set(index, pathNode);
   }
 
   let prando = new Prando(randomSeed);
@@ -384,6 +388,34 @@ export function search({
   }
 
   testCases.sort(compareTestCases).reverse();
+
+  let anyOnlyNode =
+    initializeNodes.some(initializeNode => initializeNode._only) ||
+    transitionNodes.some(transitionNode => transitionNode._only) ||
+    Array.from(defineNodeMap.values()).some(defineNode => defineNode._only);
+
+  if (anyOnlyNode) {
+    const states = Array.from(defineNodeMap.keys());
+
+    testCases = testCases.filter(testCase =>
+      testCase.path.some(pathNode => {
+        if (pathNode._only) {
+          return true;
+        }
+
+        if (pathNode instanceof AbstractTransitionNode) {
+          return (
+            pathNode.newStates.some(state => defineNodeMap.get(state)!._only) ||
+            match(states, pathNode.obsoleteStatePatterns).some(
+              state => defineNodeMap.get(state)!._only,
+            )
+          );
+        }
+
+        return false;
+      }),
+    );
+  }
 
   let lastDedupedTestCase = testCases.shift()!;
 

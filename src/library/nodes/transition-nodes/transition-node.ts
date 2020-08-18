@@ -62,6 +62,9 @@ abstract class TransitionNode<TContext, TEnvironment>
   /** @internal */
   _manual: boolean | undefined;
 
+  /** @internal */
+  _only: boolean | undefined;
+
   private patternName: string | false | undefined;
 
   private matchOptionsList: TransitionMatchOptions[];
@@ -209,6 +212,11 @@ export class TransitionToChain<
 
   manual(): this {
     this.node._manual = true;
+    return this;
+  }
+
+  only(): this {
+    this.node._only = true;
     return this;
   }
 
