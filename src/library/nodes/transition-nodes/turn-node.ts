@@ -14,9 +14,7 @@ export class TurnNode<TContext, TEnvironment> extends AbstractTransitionNode<
 
   /** @internal */
   get description(): string {
-    let description = `Turn [${this.obsoleteStatePatterns}] to [${
-      this.newStates
-    }]`;
+    let description = `Turn [${this.obsoleteStatePatterns}] to [${this.newStates}]`;
 
     if (this._description) {
       description += ` by ${this._description}`;

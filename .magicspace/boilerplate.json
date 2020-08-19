@@ -1,0 +1,10 @@
+{
+  "extends": "@mufan/code-boilerplates/typescript",
+  "options": {
+    "name": "turning",
+    "repository": "https://github.com/vilic/turning.git",
+    "license": "MIT",
+    "author": "Chengdu Mufan Technology Co., Ltd",
+    "tsProjects": [{"name": "library"}]
+  }
+}

@@ -1,17 +1,15 @@
 {
   "name": "turning",
   "version": "0.1.0-wip.5",
-  "description": "A state-based testing framework.",
+  "description": "Automated state transition testing.",
   "repository": "https://github.com/vilic/turning.git",
-  "author": "vilicvane",
   "license": "MIT",
+  "author": "Chengdu Mufan Technology Co., Ltd",
   "scripts": {
-    "build:library": "tsc --project src/library",
-    "build": "yarn build:library",
-    "lint:library": "eslint src/library --ext .ts,.tsx",
-    "lint:prettier": "prettier --check \"**/*.{ts,tsx,js,jsx,json,yml,md}\"",
-    "lint": "yarn lint:prettier && yarn lint:library",
-    "test": "jest"
+    "build": "rimraf bld .bld-cache && tsc --build",
+    "lint": "eslint .",
+    "lint-prettier": "prettier --check .",
+    "test": "yarn lint-prettier && yarn build && yarn lint"
   },
   "main": "bld/library/index.js",
   "types": "bld/library/index.d.ts",
@@ -30,14 +28,15 @@
     "villa": "^0.3.1"
   },
   "devDependencies": {
-    "@magicspace/configs": "^0.2.3",
-    "@magicspace/eslint-plugin": "^0.1.16",
+    "@mufan/code": "^0.2.5",
+    "@mufan/eslint-plugin": "^0.1.32",
     "@types/lodash": "^4.14.149",
     "@types/micromatch": "^4.0.1",
-    "@types/node": "^13.7.0",
-    "eslint": "^6.8.0",
-    "prettier": "^1.19.1",
-    "tslib": "^1.10.0",
-    "typescript": "^3.7.5"
+    "@types/node": "^14.6.0",
+    "eslint": "^7.7.0",
+    "prettier": "^2.0.5",
+    "rimraf": "^3.0.2",
+    "tslib": "^2.0.1",
+    "typescript": "^3.9.7"
   }
 }

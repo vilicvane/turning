@@ -30,7 +30,7 @@ export type SingleMultipleStateMatchingPattern =
 export interface TransitionNodeOptions {
   pattern?: string | false;
   match?: SingleMultipleStateMatchingPattern;
-  matches?: (SingleMultipleStateMatchingPattern)[];
+  matches?: SingleMultipleStateMatchingPattern[];
 }
 
 abstract class TransitionNode<TContext, TEnvironment>

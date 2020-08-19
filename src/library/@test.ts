@@ -83,9 +83,9 @@ export async function test<
     let failedTestCaseIds: string[] = [];
 
     for (let [index, pathStart] of pathStarts.entries()) {
-      let testCaseId = `${
-        parentTestCaseId ? `${parentTestCaseId}.` : ''
-      }${index + 1}`;
+      let testCaseId = `${parentTestCaseId ? `${parentTestCaseId}.` : ''}${
+        index + 1
+      }`;
 
       let passed!: boolean;
       let existingFailedSubTestCases!: boolean;

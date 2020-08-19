@@ -1,5 +1,6 @@
-**/bld/**
-**/coverage/**
+# TypeScript Build Artifacts
+bld/
+.bld-cache/
 
-package.json
+# Lerna
 lerna.json

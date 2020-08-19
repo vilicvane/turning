@@ -603,24 +603,24 @@ export function search({
       }
 
       let transitionNodeAndDestinationStatesAndRawDestinationTuples = transitionNodes
-        .map(
-          (transitionNode): [TransitionNode, string[], string] | undefined => {
-            let destinationStates = transitionNode.transitStates(
-              sourceStates,
-              transitionMatchOptionsMap,
-            );
+        .map((transitionNode):
+          | [TransitionNode, string[], string]
+          | undefined => {
+          let destinationStates = transitionNode.transitStates(
+            sourceStates,
+            transitionMatchOptionsMap,
+          );
 
-            if (!destinationStates) {
-              return undefined;
-            }
+          if (!destinationStates) {
+            return undefined;
+          }
 
-            return [
-              transitionNode,
-              destinationStates,
-              buildStatesCombination(destinationStates),
-            ];
-          },
-        )
+          return [
+            transitionNode,
+            destinationStates,
+            buildStatesCombination(destinationStates),
+          ];
+        })
         .filter(
           (tuple): tuple is [TransitionNode, string[], string] => !!tuple,
         );
@@ -644,7 +644,7 @@ export function search({
             transitionNodeAndDestinationStatesAndRawDestinationTuples.map(
               ([transitionNode, , rawDestination]): [
                 TransitionNode,
-                string
+                string,
               ] => [transitionNode, rawDestination],
             ),
           ),
@@ -670,8 +670,9 @@ export function search({
     } of manualTestCases) {
       if (!initializeNodeSet.has(initializeNode as InitializeNode)) {
         throw new Error(
-          `Invalid manual case "${name}": "${initializeNode._alias ||
-            initializeNode.description}" is not a valid initialize node`,
+          `Invalid manual case "${name}": "${
+            initializeNode._alias || initializeNode.description
+          }" is not a valid initialize node`,
         );
       }
 
@@ -692,8 +693,9 @@ export function search({
 
         if (nextStatesCombination === undefined) {
           throw new Error(
-            `Invalid manual case "${name}": "${transitionNode._alias ||
-              transitionNode.description}" is not available on states combination "${statesCombination}"`,
+            `Invalid manual case "${name}": "${
+              transitionNode._alias || transitionNode.description
+            }" is not available on states combination "${statesCombination}"`,
           );
         }
 

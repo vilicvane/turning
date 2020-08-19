@@ -14,9 +14,7 @@ export class SpawnNode<TContext, TEnvironment> extends AbstractTransitionNode<
 
   /** @internal */
   get description(): string {
-    let description = `Spawn [${this.obsoleteStatePatterns}] to [${
-      this.newStates
-    }]`;
+    let description = `Spawn [${this.obsoleteStatePatterns}] to [${this.newStates}]`;
 
     if (this._description) {
       description += ` by ${this._description}`;
