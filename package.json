@@ -1,0 +1,20 @@
+{
+  "name": "turning",
+  "version": "0.0.0",
+  "license": "MIT",
+  "author": "Chengdu Mufan Technology Co., Ltd",
+  "scripts": {
+    "build": "rimraf bld .bld-cache && tsc --build",
+    "lint": "eslint .",
+    "lint-prettier": "prettier --check .",
+    "test": "yarn lint-prettier && yarn build && yarn lint"
+  },
+  "devDependencies": {
+    "@mufan/code": "^0.2.5",
+    "@mufan/eslint-plugin": "^0.1.32",
+    "eslint": "^7.7.0",
+    "prettier": "^2.0.5",
+    "rimraf": "^3.0.2",
+    "typescript": "^3.9.7"
+  }
+}
