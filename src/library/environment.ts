@@ -4,6 +4,7 @@ export interface TurningEnvironmentAfterEachData {
   id: string;
   attempts: number;
   passed: boolean;
+  passedBeforeSpawn: boolean;
 }
 
 abstract class TurningEnvironment<TContext extends ITurningContext> {

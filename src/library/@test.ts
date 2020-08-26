@@ -208,6 +208,7 @@ export async function test<
         }
       }
 
+      let passedBeforeSpawn = passed;
       let existingFailedSubTestCases = false;
 
       if (passed && nextPathSpawns) {
@@ -230,6 +231,7 @@ export async function test<
         id: testCaseId,
         attempts,
         passed,
+        passedBeforeSpawn,
       });
 
       if (!depth) {
