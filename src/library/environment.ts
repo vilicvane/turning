@@ -1,5 +1,11 @@
 import {ITurningContext} from './context';
 
+export interface TurningEnvironmentAfterEachData {
+  id: string;
+  attempts: number;
+  passed: boolean;
+}
+
 abstract class TurningEnvironment<TContext extends ITurningContext> {
   async setup(): Promise<void> {}
 
@@ -9,7 +15,10 @@ abstract class TurningEnvironment<TContext extends ITurningContext> {
 
   async after(): Promise<void> {}
 
-  async afterEach(_context: TContext): Promise<void> {}
+  async afterEach(
+    _context: TContext,
+    _data: TurningEnvironmentAfterEachData,
+  ): Promise<void> {}
 }
 
 export const AbstractTurningEnvironment = TurningEnvironment;

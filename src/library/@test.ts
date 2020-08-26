@@ -11,7 +11,10 @@ import {
 } from './@search';
 import {indent} from './@utils';
 import {ITurningContext} from './context';
-import {ITurningEnvironment} from './environment';
+import {
+  ITurningEnvironment,
+  TurningEnvironmentAfterEachData,
+} from './environment';
 import {
   DefineNode,
   InitializeNode,
@@ -223,7 +226,11 @@ export async function test<
         }
       }
 
-      await afterEach(context);
+      await afterEach(context, {
+        id: testCaseId,
+        attempts,
+        passed,
+      });
 
       if (!depth) {
         await after();
@@ -347,9 +354,12 @@ export async function test<
     }
   }
 
-  async function afterEach(context: TContext): Promise<void> {
+  async function afterEach(
+    context: TContext,
+    data: TurningEnvironmentAfterEachData,
+  ): Promise<void> {
     if (!listOnly) {
-      await environment.afterEach(context);
+      await environment.afterEach(context, data);
     }
   }
 }
