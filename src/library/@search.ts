@@ -543,7 +543,6 @@ export function search({
 
   function getDistanceIncrementByCount(count: number): number {
     return Math.pow(2, count) * prando.next();
-    // return Math.pow(2, count);
   }
 
   function getMinPathNodeCountEntry(
