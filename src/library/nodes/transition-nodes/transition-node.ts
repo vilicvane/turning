@@ -17,20 +17,25 @@ export type TransitionHandler<TContext, TEnvironment> = (
   environment: TEnvironment,
 ) => Promise<TContext | void> | TContext | void;
 
-export interface NegativeStateMatchingPattern {
-  not: string;
+export interface NegativeStateMatchingPattern<TState extends string> {
+  not: TState;
 }
 
-export type StateMatchingPattern = string | NegativeStateMatchingPattern;
+export type StateMatchingPattern<TState extends string> =
+  | TState
+  | NegativeStateMatchingPattern<TState>;
 
-export type SingleMultipleStateMatchingPattern =
-  | StateMatchingPattern
-  | StateMatchingPattern[];
+export type SingleMultipleStateMatchingPattern<TState extends string> =
+  | StateMatchingPattern<TState>
+  | StateMatchingPattern<TState>[];
 
-export interface TransitionNodeOptions {
-  pattern?: string | false;
-  match?: SingleMultipleStateMatchingPattern;
-  matches?: SingleMultipleStateMatchingPattern[];
+export interface TransitionNodeOptions<
+  TPattern extends string,
+  TState extends string
+> {
+  pattern?: TPattern | false;
+  match?: SingleMultipleStateMatchingPattern<TState>;
+  matches?: SingleMultipleStateMatchingPattern<TState>[];
 }
 
 abstract class TransitionNode<TContext, TEnvironment>
@@ -76,7 +81,7 @@ abstract class TransitionNode<TContext, TEnvironment>
       pattern: patternName,
       match: matchPatterns,
       matches: matchPatternsList,
-    }: TransitionNodeOptions,
+    }: TransitionNodeOptions<string, string>,
   ) {
     this.patternName = patternName;
 
@@ -231,7 +236,7 @@ export class TransitionToChain<
 }
 
 export function buildTransitionMatchOptions(
-  patterns: SingleMultipleStateMatchingPattern,
+  patterns: SingleMultipleStateMatchingPattern<string>,
 ): TransitionMatchOptions {
   if (!Array.isArray(patterns)) {
     patterns = [patterns];

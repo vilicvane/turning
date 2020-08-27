@@ -34,7 +34,10 @@ export interface TurningTestOptions extends TurningSearchOptions {
 
 export class Turning<
   TContext extends ITurningContext,
-  TEnvironment extends ITurningEnvironment<TContext>
+  TEnvironment extends ITurningEnvironment<TContext>,
+  TPattern extends string = string,
+  TState extends string = string,
+  TAlias extends string = string
 > {
   private defineNodeMap = new Map<string, DefineNode<TContext>>();
 
@@ -50,20 +53,23 @@ export class Turning<
 
   constructor(readonly environment: TEnvironment) {}
 
-  define(state: string): DefineNode<TContext> {
+  define(state: TState): DefineNode<TContext> {
     let node = new DefineNode<TContext>(state);
     this.defineNodeMap.set(state, node);
     return node;
   }
 
-  pattern(patterns: SingleMultipleStateMatchingPattern): void;
-  pattern(name: string, patterns: SingleMultipleStateMatchingPattern): void;
+  pattern(patterns: SingleMultipleStateMatchingPattern<TState>): void;
   pattern(
-    name: string | undefined | SingleMultipleStateMatchingPattern,
-    patterns?: SingleMultipleStateMatchingPattern,
+    name: TPattern,
+    patterns: SingleMultipleStateMatchingPattern<TPattern>,
+  ): void;
+  pattern(
+    name: string | undefined | SingleMultipleStateMatchingPattern<string>,
+    patterns?: SingleMultipleStateMatchingPattern<string>,
   ): void {
     if (!patterns) {
-      patterns = name as SingleMultipleStateMatchingPattern;
+      patterns = name as SingleMultipleStateMatchingPattern<string>;
       name = undefined;
     }
 
@@ -73,15 +79,15 @@ export class Turning<
     );
   }
 
-  initialize(states: string[]): InitializeNode<TContext, TEnvironment> {
+  initialize(states: TState[]): InitializeNode<TContext, TEnvironment> {
     let node = new InitializeNode<TContext, TEnvironment>(states);
     this.initializeNodes.push(node);
     return node;
   }
 
   turn(
-    states: string[],
-    options: TransitionNodeOptions = {},
+    states: TState[],
+    options: TransitionNodeOptions<TPattern, TState> = {},
   ): TurnNode<TContext, TEnvironment> {
     let node = new TurnNode<TContext, TEnvironment>(states, options);
     this.transitionNodes.push(node);
@@ -89,15 +95,15 @@ export class Turning<
   }
 
   spawn(
-    states: string[],
-    options: TransitionNodeOptions = {},
+    states: TState[],
+    options: TransitionNodeOptions<TPattern, TState> = {},
   ): SpawnNode<TContext, TEnvironment> {
     let node = new SpawnNode<TContext, TEnvironment>(states, options);
     this.transitionNodes.push(node);
     return node;
   }
 
-  case(name: string, aliases: string[]): void {
+  case(name: string, aliases: TAlias[]): void {
     let nameToCasePathNodeAliasesMap = this.nameToCasePathNodeAliasesMap;
 
     if (nameToCasePathNodeAliasesMap.has(name)) {
