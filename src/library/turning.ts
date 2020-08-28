@@ -32,12 +32,18 @@ export interface TurningTestOptions extends TurningSearchOptions {
   maxAttempts?: number;
 }
 
+export interface TurningGenericParams {
+  pattern: string;
+  state: string;
+  statePattern: string;
+  initializeAlias: string;
+  transitionAlias: string;
+}
+
 export class Turning<
   TContext extends ITurningContext,
   TEnvironment extends ITurningEnvironment<TContext>,
-  TPattern extends string = string,
-  TState extends string = string,
-  TAlias extends string = string
+  TGenericParams extends TurningGenericParams = TurningGenericParams
 > {
   private defineNodeMap = new Map<string, DefineNode<TContext>>();
 
@@ -46,23 +52,40 @@ export class Turning<
     TransitionMatchOptions
   >();
 
-  private initializeNodes: InitializeNode<TContext, TEnvironment>[] = [];
-  private transitionNodes: TransitionNode<TContext, TEnvironment>[] = [];
+  private initializeNodes: InitializeNode<
+    TContext,
+    TEnvironment,
+    string
+  >[] = [];
+
+  private transitionNodes: TransitionNode<
+    TContext,
+    TEnvironment,
+    string,
+    string
+  >[] = [];
 
   private nameToCasePathNodeAliasesMap = new Map<string, string[]>();
 
   constructor(readonly environment: TEnvironment) {}
 
-  define(state: TState): DefineNode<TContext> {
+  define(state: TGenericParams['state']): DefineNode<TContext>;
+  define(state: string): DefineNode<TContext> {
     let node = new DefineNode<TContext>(state);
     this.defineNodeMap.set(state, node);
     return node;
   }
 
-  pattern(patterns: SingleMultipleStateMatchingPattern<TState>): void;
   pattern(
-    name: TPattern,
-    patterns: SingleMultipleStateMatchingPattern<TPattern>,
+    patterns: SingleMultipleStateMatchingPattern<
+      TGenericParams['statePattern']
+    >,
+  ): void;
+  pattern(
+    name: TGenericParams['pattern'],
+    patterns: SingleMultipleStateMatchingPattern<
+      TGenericParams['statePattern']
+    >,
   ): void;
   pattern(
     name: string | undefined | SingleMultipleStateMatchingPattern<string>,
@@ -79,31 +102,70 @@ export class Turning<
     );
   }
 
-  initialize(states: TState[]): InitializeNode<TContext, TEnvironment> {
-    let node = new InitializeNode<TContext, TEnvironment>(states);
+  initialize(
+    states: TGenericParams['state'][],
+  ): InitializeNode<TContext, TEnvironment, TGenericParams['initializeAlias']>;
+  initialize(states: string[]): InitializeNode<TContext, TEnvironment, string> {
+    let node = new InitializeNode<TContext, TEnvironment, string>(states);
     this.initializeNodes.push(node);
     return node;
   }
 
   turn(
-    states: TState[],
-    options: TransitionNodeOptions<TPattern, TState> = {},
-  ): TurnNode<TContext, TEnvironment> {
-    let node = new TurnNode<TContext, TEnvironment>(states, options);
+    statePatterns: TGenericParams['statePattern'][],
+    options?: TransitionNodeOptions<
+      TGenericParams['pattern'],
+      TGenericParams['statePattern']
+    >,
+  ): TurnNode<
+    TContext,
+    TEnvironment,
+    TGenericParams['statePattern'],
+    TGenericParams['transitionAlias']
+  >;
+  turn(
+    statePatterns: string[],
+    options: TransitionNodeOptions<string, string> = {},
+  ): TurnNode<TContext, TEnvironment, string, string> {
+    let node = new TurnNode<TContext, TEnvironment, string, string>(
+      statePatterns,
+      options,
+    );
     this.transitionNodes.push(node);
     return node;
   }
 
   spawn(
-    states: TState[],
-    options: TransitionNodeOptions<TPattern, TState> = {},
-  ): SpawnNode<TContext, TEnvironment> {
-    let node = new SpawnNode<TContext, TEnvironment>(states, options);
+    statePatterns: TGenericParams['statePattern'][],
+    options?: TransitionNodeOptions<
+      TGenericParams['pattern'],
+      TGenericParams['statePattern']
+    >,
+  ): SpawnNode<
+    TContext,
+    TEnvironment,
+    TGenericParams['statePattern'],
+    TGenericParams['transitionAlias']
+  >;
+  spawn(
+    statePatterns: string[],
+    options: TransitionNodeOptions<string, string> = {},
+  ): SpawnNode<TContext, TEnvironment, string, string> {
+    let node = new SpawnNode<TContext, TEnvironment, string, string>(
+      statePatterns,
+      options,
+    );
     this.transitionNodes.push(node);
     return node;
   }
 
-  case(name: string, aliases: TAlias[]): void {
+  case(
+    name: string,
+    aliases: [
+      TGenericParams['initializeAlias'],
+      ...TGenericParams['transitionAlias'][]
+    ],
+  ): void {
     let nameToCasePathNodeAliasesMap = this.nameToCasePathNodeAliasesMap;
 
     if (nameToCasePathNodeAliasesMap.has(name)) {
@@ -269,7 +331,7 @@ function assertNoUnreachableStates(
 }
 
 function assertNoUnreachableTransitions(
-  transitionNodes: TransitionNode<unknown, unknown>[],
+  transitionNodes: TransitionNode<unknown, unknown, string, string>[],
 ): void {
   let unreachableTransitionNodes = transitionNodes.filter(
     node => !node.reached,

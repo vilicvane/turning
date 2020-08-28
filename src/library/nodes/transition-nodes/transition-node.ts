@@ -17,29 +17,33 @@ export type TransitionHandler<TContext, TEnvironment> = (
   environment: TEnvironment,
 ) => Promise<TContext | void> | TContext | void;
 
-export interface NegativeStateMatchingPattern<TState extends string> {
-  not: TState;
+export interface NegativeStateMatchingPattern<TStatePattern extends string> {
+  not: TStatePattern;
 }
 
-export type StateMatchingPattern<TState extends string> =
-  | TState
-  | NegativeStateMatchingPattern<TState>;
+export type StateMatchingPattern<TStatePattern extends string> =
+  | TStatePattern
+  | NegativeStateMatchingPattern<TStatePattern>;
 
-export type SingleMultipleStateMatchingPattern<TState extends string> =
-  | StateMatchingPattern<TState>
-  | StateMatchingPattern<TState>[];
+export type SingleMultipleStateMatchingPattern<TStatePattern extends string> =
+  | StateMatchingPattern<TStatePattern>
+  | StateMatchingPattern<TStatePattern>[];
 
 export interface TransitionNodeOptions<
   TPattern extends string,
-  TState extends string
+  TStatePattern extends string
 > {
   pattern?: TPattern | false;
-  match?: SingleMultipleStateMatchingPattern<TState>;
-  matches?: SingleMultipleStateMatchingPattern<TState>[];
+  match?: SingleMultipleStateMatchingPattern<TStatePattern>;
+  matches?: SingleMultipleStateMatchingPattern<TStatePattern>[];
 }
 
-abstract class TransitionNode<TContext, TEnvironment>
-  implements IPathNode<TContext> {
+abstract class TransitionNode<
+  TContext,
+  TEnvironment,
+  TState extends string,
+  TAlias extends string
+> implements IPathNode<TContext> {
   /** @internal */
   readonly id = generateNodeId();
 
@@ -106,7 +110,9 @@ abstract class TransitionNode<TContext, TEnvironment>
   /** @internal */
   abstract get description(): string;
 
-  to(states: string[]): TransitionToChain<TContext, TEnvironment> {
+  to(
+    states: TState[],
+  ): TransitionToChain<TContext, TEnvironment, TState, TAlias> {
     this.newStates = states;
 
     return new TransitionToChain(this);
@@ -187,14 +193,20 @@ abstract class TransitionNode<TContext, TEnvironment>
   }
 }
 
-export interface ITransitionNode<TContext, TEnvironment>
-  extends TransitionNode<TContext, TEnvironment> {}
+export interface ITransitionNode<
+  TContext,
+  TEnvironment,
+  TState extends string,
+  TAlias extends string
+> extends TransitionNode<TContext, TEnvironment, TState, TAlias> {}
 
 export const AbstractTransitionNode = TransitionNode;
 
 export class TransitionToChain<
   TContext,
   TEnvironment,
+  TState extends string,
+  TAlias extends string,
   TTransitionHandler extends TransitionHandler<
     TContext,
     TEnvironment
@@ -202,10 +214,10 @@ export class TransitionToChain<
 > {
   constructor(
     /** @internal */
-    readonly node: TransitionNode<TContext, TEnvironment>,
+    readonly node: TransitionNode<TContext, TEnvironment, TState, TAlias>,
   ) {}
 
-  alias(alias: string): this {
+  alias(alias: TAlias): this {
     this.node._alias = alias;
     return this;
   }

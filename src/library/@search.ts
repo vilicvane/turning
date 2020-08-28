@@ -16,11 +16,11 @@ import {
 } from './nodes';
 
 type DefineNode = _DefineNode<unknown>;
-type InitializeNode = _InitializeNode<unknown, unknown>;
+type InitializeNode = _InitializeNode<unknown, unknown, string>;
 type PathNode = _PathNode<unknown, unknown>;
-type SpawnNode = _SpawnNode<unknown, unknown>;
-type TransitionNode = _TransitionNode<unknown, unknown>;
-type TurnNode = _TurnNode<unknown, unknown>;
+type SpawnNode = _SpawnNode<unknown, unknown, string, string>;
+type TurnNode = _TurnNode<unknown, unknown, string, string>;
+type TransitionNode = _TransitionNode<unknown, unknown, string, string>;
 
 export interface IPathVia {
   caseNameOnEnd: string | undefined;

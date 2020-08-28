@@ -6,7 +6,7 @@ export type InitializeHandler<TContext, TEnvironment> = (
   environment: TEnvironment,
 ) => Promise<TContext> | TContext;
 
-export class InitializeNode<TContext, TEnvironment>
+export class InitializeNode<TContext, TEnvironment, TAlias extends string>
   implements IPathNode<TContext> {
   /** @internal */
   readonly id = generateNodeId();
@@ -48,7 +48,7 @@ export class InitializeNode<TContext, TEnvironment>
     return description;
   }
 
-  alias(alias: string): this {
+  alias(alias: TAlias): this {
     this._alias = alias;
     return this;
   }

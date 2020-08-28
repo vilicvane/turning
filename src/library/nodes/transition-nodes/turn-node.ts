@@ -2,10 +2,12 @@ import {TestHandler} from '../common';
 
 import {AbstractTransitionNode, TransitionHandler} from './transition-node';
 
-export class TurnNode<TContext, TEnvironment> extends AbstractTransitionNode<
+export class TurnNode<
   TContext,
-  TEnvironment
-> {
+  TEnvironment,
+  TState extends string,
+  TAlias extends string
+> extends AbstractTransitionNode<TContext, TEnvironment, TState, TAlias> {
   /** @internal */
   handler!: TransitionHandler<TContext, TEnvironment>;
 

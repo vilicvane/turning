@@ -188,7 +188,12 @@ export async function test<
             }
           }
 
-          let turnNode = pathTurn.node as TurnNode<TContext, TEnvironment>;
+          let turnNode = pathTurn.node as TurnNode<
+            TContext,
+            TEnvironment,
+            string,
+            string
+          >;
 
           passed = await runSteps(
             [

@@ -2,12 +2,12 @@ import {InitializeNode} from './initialize-node';
 import {SpawnNode, TransitionNode} from './transition-nodes';
 
 export type PathNode<TContext, TEnvironment> =
-  | InitializeNode<TContext, TEnvironment>
-  | TransitionNode<TContext, TEnvironment>;
+  | InitializeNode<TContext, TEnvironment, string>
+  | TransitionNode<TContext, TEnvironment, string, string>;
 
 export type StartNode<TContext, TEnvironment> =
-  | InitializeNode<TContext, TEnvironment>
-  | SpawnNode<TContext, TEnvironment>;
+  | InitializeNode<TContext, TEnvironment, string>
+  | SpawnNode<TContext, TEnvironment, string, string>;
 
 export type TestHandler<TContext> = (context: TContext) => Promise<void> | void;
 
