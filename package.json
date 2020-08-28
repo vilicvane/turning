@@ -1,6 +1,6 @@
 {
   "name": "turning",
-  "version": "0.1.0-wip.9",
+  "version": "0.1.0-wip.10",
   "description": "Automated state transition testing.",
   "repository": "https://github.com/vilic/turning.git",
   "license": "MIT",
