@@ -61,6 +61,7 @@ export interface ManualTestCase {
 }
 
 export interface SearchOptions {
+  statesCombinationValidator(states: string[]): void;
   defineNodeMap: Map<string, DefineNode>;
   initializeNodes: InitializeNode[];
   transitionNodes: TransitionNode[];
@@ -76,6 +77,7 @@ export interface SearchResult {
 }
 
 export function search({
+  statesCombinationValidator,
   defineNodeMap,
   initializeNodes,
   transitionNodes,
@@ -555,6 +557,8 @@ export function search({
     for (let initializeNode of initializeNodes) {
       let states = initializeNode.states;
 
+      statesCombinationValidator(states);
+
       searchNextStatesCombinations(states, buildStatesCombination(states));
     }
 
@@ -613,6 +617,8 @@ export function search({
           if (!destinationStates) {
             return undefined;
           }
+
+          statesCombinationValidator(destinationStates);
 
           return [
             transitionNode,

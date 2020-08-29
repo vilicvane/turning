@@ -23,14 +23,17 @@ interface TurningSearchOptions {
   allowUnreachable?: boolean;
   minTransitionSearchCount?: number;
   randomSeed?: string | number;
+  statesCombinationValidator?(states: string[]): void;
 }
 
-export interface TurningTestOptions extends TurningSearchOptions {
+export interface TurningTestOptions<TState extends string>
+  extends TurningSearchOptions {
   bail?: boolean;
   filter?: string[];
   verbose?: boolean;
   listOnly?: boolean;
   maxAttempts?: number;
+  statesCombinationValidator?(states: TState[]): void;
 }
 
 export interface TurningGenericParams {
@@ -176,7 +179,9 @@ export class Turning<
     nameToCasePathNodeAliasesMap.set(name, aliases);
   }
 
-  async test(options?: TurningTestOptions): Promise<boolean>;
+  async test(
+    options?: TurningTestOptions<TGenericParams['state']>,
+  ): Promise<boolean>;
   async test({
     bail = false,
     maxAttempts = 1,
@@ -184,7 +189,7 @@ export class Turning<
     verbose = false,
     listOnly = false,
     ...searchOptions
-  }: TurningTestOptions = {}): Promise<boolean> {
+  }: TurningTestOptions<string> = {}): Promise<boolean> {
     let pathInitializes = this.search(searchOptions);
 
     return test(pathInitializes, {
@@ -199,6 +204,7 @@ export class Turning<
   }
 
   private search({
+    statesCombinationValidator = (): void => {},
     allowUnreachable = false,
     minTransitionSearchCount = 10,
     randomSeed = new Date().toDateString(),
@@ -208,6 +214,7 @@ export class Turning<
     let manualTestCases = this.buildManualTestCases();
 
     let {pathInitializes, reachedStateSet} = search({
+      statesCombinationValidator,
       defineNodeMap: this.defineNodeMap,
       initializeNodes: this.initializeNodes,
       transitionNodes: this.transitionNodes,
