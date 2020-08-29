@@ -1,5 +1,6 @@
+import Chalk from 'chalk';
 import _ from 'lodash';
-import match from 'micromatch';
+import match from 'multimatch';
 
 import {ManualTestCase, PathInitialize, search} from './@search';
 import {test} from './@test';
@@ -120,7 +121,7 @@ export class Turning<
   ): TurnNode<
     TContext,
     TEnvironment,
-    TGenericParams['statePattern'],
+    TGenericParams['state'],
     TGenericParams['transitionAlias']
   >;
   turn(
@@ -144,7 +145,7 @@ export class Turning<
   ): SpawnNode<
     TContext,
     TEnvironment,
-    TGenericParams['statePattern'],
+    TGenericParams['state'],
     TGenericParams['transitionAlias']
   >;
   spawn(
@@ -216,12 +217,15 @@ export class Turning<
       randomSeed,
     });
 
-    if (!allowUnreachable) {
-      let definedStateSet = new Set(this.defineNodeMap.keys());
-      assertNoUnreachableStates(definedStateSet, reachedStateSet);
-    }
+    let definedStateSet = new Set(this.defineNodeMap.keys());
 
-    assertNoUnreachableTransitions(this.transitionNodes);
+    assertNoUnreachableStates(
+      definedStateSet,
+      reachedStateSet,
+      allowUnreachable,
+    );
+
+    assertNoUnreachableTransitions(this.transitionNodes, allowUnreachable);
 
     return pathInitializes;
   }
@@ -310,6 +314,7 @@ export class Turning<
 function assertNoUnreachableStates(
   definedStateSet: Set<string>,
   reachedStateSet: Set<string>,
+  allowUnreachable: boolean,
 ): void {
   let neverReachedStateSet = new Set(definedStateSet);
 
@@ -323,15 +328,21 @@ function assertNoUnreachableStates(
 
   let neverReachedStates = Array.from(neverReachedStateSet);
 
-  throw new Error(
-    `Unreachable states:\n${neverReachedStates
-      .map(state => `  ${state}`)
-      .join('\n')}`,
-  );
+  let message = `Unreachable states:\n${neverReachedStates
+    .map(state => `  ${state}`)
+    .join('\n')}`;
+
+  if (allowUnreachable) {
+    console.warn(Chalk.yellow(message));
+    console.warn();
+  } else {
+    throw new Error(message);
+  }
 }
 
 function assertNoUnreachableTransitions(
   transitionNodes: TransitionNode<unknown, unknown, string, string>[],
+  allowUnreachable: boolean,
 ): void {
   let unreachableTransitionNodes = transitionNodes.filter(
     node => !node.reached,
@@ -341,9 +352,14 @@ function assertNoUnreachableTransitions(
     return;
   }
 
-  throw new Error(
-    `Unreachable transitions:\n${unreachableTransitionNodes
-      .map(node => `  ${node._alias || node.description}`)
-      .join('\n')}`,
-  );
+  let message = `Unreachable transitions:\n${unreachableTransitionNodes
+    .map(node => `  ${node._alias || node.description}`)
+    .join('\n')}`;
+
+  if (allowUnreachable) {
+    console.warn(Chalk.yellow(message));
+    console.warn();
+  } else {
+    throw new Error(message);
+  }
 }

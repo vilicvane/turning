@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import match from 'micromatch';
+import match from 'multimatch';
 import Graph from 'node-dijkstra';
 import Prando from 'prando';
 

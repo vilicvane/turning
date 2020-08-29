@@ -1,7 +1,7 @@
 import assert from 'assert';
 
 import _ from 'lodash';
-import match from 'micromatch';
+import match from 'multimatch';
 
 import {generateNodeId} from '../@utils';
 import {IPathNode, TestHandler} from '../common';
@@ -110,9 +110,7 @@ abstract class TransitionNode<
   /** @internal */
   abstract get description(): string;
 
-  to(
-    states: TState[],
-  ): TransitionToChain<TContext, TEnvironment, TState, TAlias> {
+  to(states: TState[]): TransitionToChain<TContext, TEnvironment, TAlias> {
     this.newStates = states;
 
     return new TransitionToChain(this);
@@ -163,7 +161,7 @@ abstract class TransitionNode<
     this.reached = true;
 
     if (obsoleteStatePatterns.length) {
-      states = match.not(states, obsoleteStatePatterns);
+      states = _.difference(states, match(states, obsoleteStatePatterns));
     }
 
     return _.union(states, newStates);
@@ -205,7 +203,6 @@ export const AbstractTransitionNode = TransitionNode;
 export class TransitionToChain<
   TContext,
   TEnvironment,
-  TState extends string,
   TAlias extends string,
   TTransitionHandler extends TransitionHandler<
     TContext,
@@ -214,7 +211,7 @@ export class TransitionToChain<
 > {
   constructor(
     /** @internal */
-    readonly node: TransitionNode<TContext, TEnvironment, TState, TAlias>,
+    readonly node: TransitionNode<TContext, TEnvironment, string, string>,
   ) {}
 
   alias(alias: TAlias): this {
@@ -281,7 +278,7 @@ function testMatchOptions(
     }
   }
 
-  if (match.some(states, negativePatterns)) {
+  if (match(states, negativePatterns).length > 0) {
     return false;
   }
 
