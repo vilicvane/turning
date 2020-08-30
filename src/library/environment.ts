@@ -12,12 +12,22 @@ abstract class TurningEnvironment<TContext extends ITurningContext> {
 
   async teardown(): Promise<void> {}
 
+  /**
+   * Before every complete test case, e.g. "Test Case 1", "Test Case 2".
+   */
   async before(): Promise<void> {}
 
+  /**
+   * After every complete test case, e.g. "Test Case 1", "Test Case 2".
+   */
   async after(): Promise<void> {}
 
+  /**
+   * After each test case branch, e.g. "Test Case 1.1", "Test Case 1.2", "Test
+   * Case 1".
+   */
   async afterEach(
-    _context: TContext,
+    _context: TContext | undefined,
     _data: TurningEnvironmentAfterEachData,
   ): Promise<void> {}
 }
