@@ -154,7 +154,7 @@ export async function test<
         await before();
       }
 
-      let context!: TContext;
+      let context: TContext | undefined;
       let startNode = pathStart.node as StartNode<TContext, TEnvironment>;
 
       let passed = await runSteps(
@@ -170,8 +170,8 @@ export async function test<
                 );
               }
             }),
-          () => testStates(startStates, context),
-          () => testTransition(startNode, context),
+          () => testStates(startStates, context!),
+          () => testTransition(startNode, context!),
         ],
         () => context,
       );
@@ -199,10 +199,10 @@ export async function test<
             [
               () =>
                 transit(async () => {
-                  context = await turnNode.transit(context, environment);
+                  context = await turnNode.transit(context!, environment);
                 }),
-              () => testStates(turnStates, context),
-              () => testTransition(turnNode, context),
+              () => testStates(turnStates, context!),
+              () => testTransition(turnNode, context!),
             ],
             () => context,
           );
@@ -362,7 +362,7 @@ export async function test<
   }
 
   async function afterEach(
-    context: TContext,
+    context: TContext | undefined,
     data: TurningEnvironmentAfterEachData,
   ): Promise<void> {
     if (!listOnly) {

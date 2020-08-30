@@ -72,6 +72,8 @@ export class Turning<
 
   private nameToCasePathNodeAliasesMap = new Map<string, string[]>();
 
+  private _only = false;
+
   constructor(
     readonly environment: TEnvironment,
     private options: TurningOptions<TGenericParams['state']> = {},
@@ -79,7 +81,7 @@ export class Turning<
 
   define(state: TGenericParams['state']): DefineNode<TContext>;
   define(state: string): DefineNode<TContext> {
-    let node = new DefineNode<TContext>(state);
+    let node = new DefineNode<TContext>(state, this._only);
     this.defineNodeMap.set(state, node);
     return node;
   }
@@ -110,11 +112,20 @@ export class Turning<
     );
   }
 
+  only(): this {
+    let clone = Object.create(this) as this;
+    clone._only = true;
+    return clone;
+  }
+
   initialize(
     states: TGenericParams['state'][],
   ): InitializeNode<TContext, TEnvironment, TGenericParams['initializeAlias']>;
   initialize(states: string[]): InitializeNode<TContext, TEnvironment, string> {
-    let node = new InitializeNode<TContext, TEnvironment, string>(states);
+    let node = new InitializeNode<TContext, TEnvironment, string>(
+      states,
+      this._only,
+    );
     this.initializeNodes.push(node);
     return node;
   }
@@ -137,6 +148,7 @@ export class Turning<
   ): TurnNode<TContext, TEnvironment, string, string> {
     let node = new TurnNode<TContext, TEnvironment, string, string>(
       statePatterns,
+      this._only,
       options,
     );
     this.transitionNodes.push(node);
@@ -161,6 +173,7 @@ export class Turning<
   ): SpawnNode<TContext, TEnvironment, string, string> {
     let node = new SpawnNode<TContext, TEnvironment, string, string>(
       statePatterns,
+      this._only,
       options,
     );
     this.transitionNodes.push(node);

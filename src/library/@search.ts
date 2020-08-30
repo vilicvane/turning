@@ -392,24 +392,24 @@ export function search({
   testCases.sort(compareTestCases).reverse();
 
   let anyOnlyNode =
-    initializeNodes.some(initializeNode => initializeNode._only) ||
-    transitionNodes.some(transitionNode => transitionNode._only) ||
-    Array.from(defineNodeMap.values()).some(defineNode => defineNode._only);
+    initializeNodes.some(initializeNode => initializeNode.only) ||
+    transitionNodes.some(transitionNode => transitionNode.only) ||
+    Array.from(defineNodeMap.values()).some(defineNode => defineNode.only);
 
   if (anyOnlyNode) {
     const states = Array.from(defineNodeMap.keys());
 
     testCases = testCases.filter(testCase =>
       testCase.path.some(pathNode => {
-        if (pathNode._only) {
+        if (pathNode.only) {
           return true;
         }
 
         if (pathNode instanceof AbstractTransitionNode) {
           return (
-            pathNode.newStates.some(state => defineNodeMap.get(state)!._only) ||
+            pathNode.newStates.some(state => defineNodeMap.get(state)!.only) ||
             match(states, pathNode.obsoleteStatePatterns).some(
-              state => defineNodeMap.get(state)!._only,
+              state => defineNodeMap.get(state)!.only,
             )
           );
         }

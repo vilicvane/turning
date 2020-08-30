@@ -24,17 +24,13 @@ export class InitializeNode<TContext, TEnvironment, TAlias extends string>
   testHandler: TestHandler<TContext> | undefined;
 
   /** @internal */
-  _depth: number | undefined;
-
-  /** @internal */
   _manual: boolean | undefined;
-
-  /** @internal */
-  _only: boolean | undefined;
 
   constructor(
     /** @internal */
     readonly states: string[],
+    /** @internal */
+    readonly only: boolean,
   ) {}
 
   /** @internal */
@@ -53,18 +49,8 @@ export class InitializeNode<TContext, TEnvironment, TAlias extends string>
     return this;
   }
 
-  depth(depth: number): this {
-    this._depth = depth;
-    return this;
-  }
-
   manual(): this {
     this._manual = true;
-    return this;
-  }
-
-  only(): this {
-    this._only = true;
     return this;
   }
 

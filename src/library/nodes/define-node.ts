@@ -4,15 +4,11 @@ export class DefineNode<TContext> {
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
 
-  /** @internal */
-  _only: boolean | undefined;
-
-  constructor(public state: string) {}
-
-  only(): this {
-    this._only = true;
-    return this;
-  }
+  constructor(
+    readonly state: string,
+    /** @internal */
+    readonly only: boolean,
+  ) {}
 
   test(handler: TestHandler<TContext>): void {
     this.testHandler = handler;

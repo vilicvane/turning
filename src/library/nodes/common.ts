@@ -25,8 +25,8 @@ export interface IPathNode<TContext> {
   description: string;
 
   /** @internal */
-  testHandler: TestHandler<TContext> | undefined;
+  only: boolean;
 
   /** @internal */
-  _depth: number | undefined;
+  testHandler: TestHandler<TContext> | undefined;
 }

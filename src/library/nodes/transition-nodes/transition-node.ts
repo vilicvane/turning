@@ -66,13 +66,7 @@ abstract class TransitionNode<
   reached = false;
 
   /** @internal */
-  _depth: number | undefined;
-
-  /** @internal */
   _manual: boolean | undefined;
-
-  /** @internal */
-  _only: boolean | undefined;
 
   private patternName: string | false | undefined;
 
@@ -81,6 +75,8 @@ abstract class TransitionNode<
   constructor(
     /** @internal */
     readonly obsoleteStatePatterns: string[],
+    /** @internal */
+    readonly only: boolean,
     {
       pattern: patternName,
       match: matchPatterns,
@@ -219,18 +215,8 @@ export class TransitionToChain<
     return this;
   }
 
-  depth(depth: number): this {
-    this.node._depth = depth;
-    return this;
-  }
-
   manual(): this {
     this.node._manual = true;
-    return this;
-  }
-
-  only(): this {
-    this.node._only = true;
     return this;
   }
 
