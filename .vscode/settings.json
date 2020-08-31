@@ -18,5 +18,5 @@
     "typescript",
     "typescriptreact"
   ],
-  "cSpell.words": ["Deduped", "multimatch", "prando"]
+  "cSpell.words": ["Deduped", "cond", "prando", "regexes"]
 }

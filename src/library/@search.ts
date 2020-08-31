@@ -1,8 +1,8 @@
 import _ from 'lodash';
-import match from 'multimatch';
 import Graph from 'node-dijkstra';
 import Prando from 'prando';
 
+import {buildStateFilter} from './@state-pattern';
 import {pairwise} from './@utils';
 import {
   AbstractTransitionNode,
@@ -408,9 +408,9 @@ export function search({
         if (pathNode instanceof AbstractTransitionNode) {
           return (
             pathNode.newStates.some(state => defineNodeMap.get(state)!.only) ||
-            match(states, pathNode.obsoleteStatePatterns).some(
-              state => defineNodeMap.get(state)!.only,
-            )
+            states
+              .filter(buildStateFilter(pathNode.obsoleteStatePatterns))
+              .some(state => defineNodeMap.get(state)!.only)
           );
         }
 

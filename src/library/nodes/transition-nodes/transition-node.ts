@@ -1,8 +1,8 @@
 import assert from 'assert';
 
 import _ from 'lodash';
-import match from 'multimatch';
 
+import {buildStateFilter} from '../../@state-pattern';
 import {generateNodeId} from '../@utils';
 import {IPathNode, TestHandler} from '../common';
 import {ResultNode} from '../result-node';
@@ -136,7 +136,7 @@ abstract class TransitionNode<
     for (let pattern of obsoleteStatePatterns) {
       // For every obsolete state pattern, it has at least one corespondent
       // state
-      if (match(states, pattern).length === 0) {
+      if (!states.some(buildStateFilter(pattern))) {
         return undefined;
       }
     }
@@ -160,7 +160,8 @@ abstract class TransitionNode<
     this.reached = true;
 
     if (obsoleteStatePatterns.length) {
-      states = _.difference(states, match(states, obsoleteStatePatterns));
+      let obsoleteStateFilter = buildStateFilter(obsoleteStatePatterns);
+      states = states.filter(state => !obsoleteStateFilter(state));
     }
 
     return _.union(states, newStates);
@@ -265,12 +266,12 @@ function testMatchOptions(
   {patterns, negativePatterns}: TransitionMatchOptions,
 ): boolean {
   for (let pattern of patterns) {
-    if (match(states, pattern).length === 0) {
+    if (!states.some(buildStateFilter(pattern))) {
       return false;
     }
   }
 
-  if (match(states, negativePatterns).length > 0) {
+  if (states.some(buildStateFilter(negativePatterns))) {
     return false;
   }
 

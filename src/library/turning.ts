@@ -1,8 +1,8 @@
 import Chalk from 'chalk';
 import _ from 'lodash';
-import match from 'multimatch';
 
 import {ManualTestCase, PathInitialize, search} from './@search';
+import {buildStateFilter} from './@state-pattern';
 import {test} from './@test';
 import {ITurningContext} from './context';
 import {ITurningEnvironment} from './environment';
@@ -294,7 +294,7 @@ export class Turning<
     }
 
     for (let statePattern of statePatternSet) {
-      if (match(definedStates, statePattern).length === 0) {
+      if (!definedStates.some(buildStateFilter(statePattern))) {
         throw new Error(
           `State pattern "${statePattern}" does not match any of the states defined`,
         );
