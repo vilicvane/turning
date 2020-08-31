@@ -167,6 +167,7 @@ export async function test<
                 context = await startNode.transit(
                   parentContext!.spawn(),
                   environment,
+                  startStates,
                 );
               }
             }),
@@ -199,7 +200,11 @@ export async function test<
             [
               () =>
                 transit(async () => {
-                  context = await turnNode.transit(context!, environment);
+                  context = await turnNode.transit(
+                    context!,
+                    environment,
+                    turnStates,
+                  );
                 }),
               () => testStates(turnStates, context!),
               () => testTransition(turnNode, context!),

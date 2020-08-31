@@ -12,9 +12,10 @@ export interface TransitionMatchOptions {
   negativePatterns: string[];
 }
 
-export type TransitionHandler<TContext, TEnvironment> = (
+export type TransitionHandler<TContext, TEnvironment, TState extends string> = (
   context: TContext,
   environment: TEnvironment,
+  states: TState[],
 ) => Promise<TContext | void> | TContext | void;
 
 export interface NegativeStateMatchingPattern<TStatePattern extends string> {
@@ -57,7 +58,7 @@ abstract class TransitionNode<
   newStates!: string[];
 
   /** @internal */
-  handler!: TransitionHandler<TContext, TEnvironment>;
+  handler!: TransitionHandler<TContext, TEnvironment, string>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
@@ -106,7 +107,9 @@ abstract class TransitionNode<
   /** @internal */
   abstract get description(): string;
 
-  to(states: TState[]): TransitionToChain<TContext, TEnvironment, TAlias> {
+  to(
+    states: TState[],
+  ): TransitionToChain<TContext, TEnvironment, TState, TAlias> {
     this.newStates = states;
 
     return new TransitionToChain(this);
@@ -167,10 +170,11 @@ abstract class TransitionNode<
   async transit(
     context: TContext,
     environment: TEnvironment,
+    states: string[],
   ): Promise<TContext> {
     let handler = this.handler;
 
-    let updatedContext = await handler(context, environment);
+    let updatedContext = await handler(context, environment, states);
 
     return updatedContext || context;
   }
@@ -199,11 +203,13 @@ export const AbstractTransitionNode = TransitionNode;
 export class TransitionToChain<
   TContext,
   TEnvironment,
+  TState extends string,
   TAlias extends string,
   TTransitionHandler extends TransitionHandler<
     TContext,
-    TEnvironment
-  > = TransitionHandler<TContext, TEnvironment>
+    TEnvironment,
+    TState
+  > = TransitionHandler<TContext, TEnvironment, TState>
 > {
   constructor(
     /** @internal */

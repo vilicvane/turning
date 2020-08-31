@@ -9,7 +9,7 @@ export class TurnNode<
   TAlias extends string
 > extends AbstractTransitionNode<TContext, TEnvironment, TState, TAlias> {
   /** @internal */
-  handler!: TransitionHandler<TContext, TEnvironment>;
+  handler!: TransitionHandler<TContext, TEnvironment, string>;
 
   /** @internal */
   testHandler: TestHandler<TContext> | undefined;
