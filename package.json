@@ -10,6 +10,9 @@
     "lint-prettier": "prettier --check .",
     "test": "yarn lint-prettier && yarn build && yarn lint"
   },
+  "dependencies": {
+    "tslib": "^2.0.1"
+  },
   "devDependencies": {
     "@mufan/code": "^0.2.5",
     "@mufan/eslint-plugin": "^0.1.33",
